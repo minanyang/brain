@@ -49,7 +49,7 @@ sources: [sources/sessions/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-
 - Human-sourced claims outrank digest-sourced ones. Ingest may not remove or alter them; a later digest that contradicts one is recorded under `## Conflicts`, not applied. Humans edit pages directly — ingest detects the edits from git (see architecture.md, ingest step 0); no special syntax is required.
 - Link other pages with `[[directory/page]]`. Link liberally; a link to a page that does not exist yet is a TODO for ingest, not an error.
 - Dates are absolute (`2026-08-21`), never relative ("last week").
-- Contradictions live under `## Conflicts` as dated pairs; the agent never picks a winner. Each entry stays open until a human decides, at which point the winning claim is cited `(→ human, date)` and the entry is marked resolved with the date.
+- Contradictions live under `## Conflicts`, one line each: `- [open] 2026-08-21: "<existing claim>" (→ its source) vs "<new claim>" (→ new source)`. The agent never picks a winner. When a human decides, the winning claim goes into the body cited `(→ human, date)` and the entry becomes `- [resolved 2026-08-22] …`. The fixed prefix is what the reminder and lint grep for.
 - Pages are rewritten, not appended to. History is in git, not in the page.
 
 ## Session digest template
@@ -117,7 +117,7 @@ ingested: false
 - [[people/platform-team]] — owns CI and the deploy pipeline; contact: …
 ```
 
-One line per page, grouped by directory, alphabetical within a group. Rewritten on every ingest.
+One line per page — the page's first sentence — grouped by directory, alphabetical within a group. Generated from the pages by `scripts/index.sh` at the end of every ingest; never written by hand or by the agent, so it cannot drift from the pages.
 
 ## log.md
 
@@ -131,7 +131,7 @@ Append-only. Prefix format is fixed so it is greppable.
 
 ## brief.md
 
-Compiled from pages with `brief: true`: the page title, its two-sentence summary, and a link. Target ≤ 30 lines. Never hand-edited — change the source page instead.
+Compiled from pages with `brief: true`: the page title, its opening summary, and a link. Generated at the end of every ingest. Target ≤ 30 lines, so keep the `brief: true` set small. Never hand-edited — change the source page instead.
 
 ## Lint rules
 

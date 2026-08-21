@@ -77,13 +77,13 @@ Nothing to do. When a session ends, its digest appears in the routed vault's `so
 [brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest
 ```
 
-## 5. Ingest when you want to *(later)*
+## 5. Ingest when you want to
 
 ```
 /brain:ingest
 ```
 
-Acts on the vault the current directory routes to (or `--vault work`). Collects your hand edits since the last ingest, integrates pending digests and refs into the wiki, rewrites `index.md`, appends to `log.md`, recompiles `brief.md`, commits, and finishes by asking you to decide each conflict it recorded.
+Acts on the vault the current directory routes to (or `--vault work`). Collects your hand edits since the last ingest, integrates pending digests and refs into the wiki in batches — each batch regenerates `index.md` and `brief.md`, appends to `log.md`, and commits — and finishes by asking you to decide each conflict it recorded. It uses the session's model, so pick one with `/model` first; a strong model is worth it here.
 
 Open the vault in Obsidian or any editor and read what it wrote. Correct anything wrong directly in the page; the next ingest treats your edit as the highest-priority source.
 

@@ -15,9 +15,9 @@ This repository is the public pattern and reference implementation. It must neve
 ```
 docs/        architecture, schema, privacy, setup — the pattern
 templates/   vault skeleton and page templates, copied by /brain:init
-skills/      /brain:* skills (Agent Skills standard), one directory each: init, distill (ingest, query, lint not yet)
+skills/      /brain:* skills (Agent Skills standard), one directory each: init, distill, ingest (query, lint, clip not yet)
 hooks/       hooks.json plus the three scripts it runs
-scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, init-vault, status
+scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, init-vault, status, ingest-prep, ingest-finish, index
 .claude-plugin/  plugin.json and marketplace.json
 ```
 

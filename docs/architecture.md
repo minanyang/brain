@@ -122,19 +122,19 @@ Properties that matter:
 
 **Step 0 — collect human corrections.** The vault is a git repository and ingest is the only non-human process that commits wiki pages. After each ingest it moves the tag `brain/last-ingest`. Before the next ingest it runs `git diff brain/last-ingest -- me/ people/ projects/ decisions/ topics/` (plus any directories the vault declares) (working tree included, so an edit saved in Obsidian counts without a commit). Every hunk in that diff is a human edit. The hunks are handed to ingest as a source that outranks every digest, and the claims they carry are cited as `(→ human, YYYY-MM-DD)` when the page is rewritten.
 
-Then, for each source not yet marked as ingested:
+Then, in batches of pending sources (oldest first, ~15 at a time, so that progress is committed and a long run can stop and resume):
 
 1. Extract facts and classify them by page type: the user, a person or team, a project, a decision, a topic, or any type the vault declares.
-2. For each fact, find the page it belongs to (via `index.md`); create the page if missing.
-3. Update the page. If the fact contradicts an existing claim, do **not** overwrite and do **not** pick a winner — record both with dates under a `## Conflicts` heading and flag it in `log.md`.
-4. Update `index.md`, append to `log.md`, mark the source as ingested in `.state/ingested.json`.
-5. Recompile `brief.md`.
-6. Commit, then move `brain/last-ingest` to the new commit.
-7. List every conflict this run created and ask the human to decide each one now or leave it. A decision is written immediately as a `(→ human, date)` claim on the page; the conflict entry is closed with the date.
+2. For each fact, find the page it belongs to (via `index.md` and the vault's glossary); create the page if missing.
+3. Rewrite the page. If the fact contradicts an existing claim, do **not** overwrite and do **not** pick a winner — record both under `## Conflicts` as an `[open]` entry.
+4. Finish the batch deterministically (`scripts/ingest-finish.sh`): secret gate on every changed page, mark the sources `ingested: true`, regenerate `index.md` and `brief.md` from the pages, append to `log.md`, commit, move `brain/last-ingest`.
+5. When the run stops, list every `[open]` conflict it created and ask the human to decide each one now or leave it. A decision is written immediately as a `(→ human, date)` claim on the page; the entry becomes `[resolved <date>]`.
+
+Steps 1–3 are the skill's judgment; step 0 and step 4 are scripts (`ingest-prep.sh`, `ingest-finish.sh`). The split is the same as distill's: the agent decides what a fact means, and never touches the bookkeeping.
 
 Pages with `locked: true` are never rewritten; ingest may only append under their `## Conflicts`.
 
-A single session digest typically touches 3–10 pages. This step needs a stronger model than distill.
+A single session digest typically touches 3–10 pages. This step needs a stronger model than distill; it runs in the user's session, so it uses whatever model the session uses — Brain sets no default.
 
 ### query
 
@@ -159,7 +159,7 @@ Distill and ingest are triggered differently because they are different kinds of
 | --- | --- | --- |
 | distill | `SessionEnd` hook, forks to the background | The payload names the transcript; no scanning. `SessionEnd` hooks get about 1.5 s, so the hook only spawns the runner and returns; output goes to `~/.brain/logs/distill.log`. |
 | distill (catch-up) | `SessionStart` hook `brain-catchup`, `startup` only, forks to the background | Sessions that ended without a clean `SessionEnd` (closed terminal, crash, `claude -p` runs) are picked up the next time the user opens the agent; it looks at transcripts modified in the last 7 days, so a fresh install does not silently backfill years of history — that is `/brain:distill --all`. Together the two hooks give complete coverage with no scheduler. |
-| status reminder | `SessionStart` hook `brain-status`, **sync**, `startup\|clear\|compact` | Reads `.state/` only, so it is fast, and returns `hookSpecificOutput.additionalContext` with one line: `[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest`. If brief injection is enabled (open question), the brief rides in the same payload; if the working directory is a vault, so does the schema. Separate from the catch-up hook so the reminder never waits on a distill. |
+| status reminder | `SessionStart` hook `brain-status`, **sync**, `startup\|resume\|clear\|compact` | Reads `.state/` only, so it is fast, and returns `hookSpecificOutput.additionalContext` with one line: `[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest`. If brief injection is enabled (open question), the brief rides in the same payload; if the working directory is a vault, so does the schema. Separate from the catch-up hook so the reminder never waits on a distill. |
 | ingest | `/brain:ingest`, deliberate | Expensive, judgment-heavy, rewrites many pages. Running it in the background on random session starts would spend tokens invisibly, change `brief.md` unpredictably mid-day, and race across concurrent sessions. Automating it later is a one-line change in `hooks.json`, not an architecture change. |
 | query, lint | `/brain:query`, `/brain:lint` | Interactive by nature. |
 

@@ -27,8 +27,13 @@ if [ -n "$vault" ]; then
   pending=$(printf '%s' "$pending_files" | grep -c . || true)
   if [ "$pending" -gt 0 ]; then
     since=$(printf '%s\n' "$pending_files" | xargs -n1 basename | sort | head -1 | cut -c1-10)
-    line="[brain] $pending digest(s) pending in vault '$vault' since $since — run /brain:ingest"
-    ctx="${ctx:+$ctx$'\n\n'}$line"
+    line="[brain] $pending source(s) pending in vault '$vault' since $since"
+  fi
+  wiki_dirs=$(find "$vp" -maxdepth 1 -mindepth 1 -type d ! -name sources ! -name '.*')
+  open=$( { [ -n "$wiki_dirs" ] && grep -rh '^- \[open\]' $wiki_dirs 2>/dev/null; } | wc -l | tr -d ' ' || true)
+  [ "$open" -gt 0 ] && line="${line:-[brain] vault '$vault'}${line:+,} $open open conflict(s)"
+  if [ -n "${line:-}" ]; then
+    ctx="${ctx:+$ctx$'\n\n'}$line — run /brain:ingest"
   fi
   if [ "$(config_get '.inject_brief' false)" = true ] && [ -s "$vp/brief.md" ]; then
     if "$BRAIN_ROOT/scripts/secret-gate.sh" < "$vp/brief.md" 2>/dev/null; then
