@@ -14,14 +14,14 @@ This repository is the public pattern and reference implementation. It must neve
 
 ```
 docs/        architecture, schema, privacy, setup — the pattern
-templates/   vault skeleton and page templates, copied by /brain init
-skills/      /brain skills (Agent Skills standard), one directory each   (not yet)
-hooks/       hooks.json plus the scripts it runs                           (not yet)
-scripts/     deterministic parts: transcript extractor, distill runner, secret gate, state, lock (not yet)
-.claude-plugin/  plugin.json and marketplace.json                          (not yet)
+templates/   vault skeleton and page templates, copied by /brain:init
+skills/      /brain:* skills (Agent Skills standard), one directory each: init, distill (ingest, query, lint not yet)
+hooks/       hooks.json plus the three scripts it runs
+scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, init-vault, status
+.claude-plugin/  plugin.json and marketplace.json
 ```
 
-After touching either manifest, run `claude plugin validate . --strict`.
+After touching either manifest, run `claude plugin validate . --strict`. To try the plugin from the working tree without installing it: `claude --plugin-dir ~/Repos/brain`. Scripts must stay bash 3.2-compatible (macOS default) and depend only on `jq` and `git`.
 
 ## Where the design lives
 

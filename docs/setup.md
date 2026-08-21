@@ -7,7 +7,7 @@ What you do, in order, and what exists afterwards. Everything here is Phase 1–
 Inside Claude Code:
 
 ```
-/plugin marketplace add miayang0513/brain
+/plugin marketplace add minanyang/brain
 /plugin install brain@brain
 ```
 
@@ -18,7 +18,7 @@ Afterwards: the `/brain` skills exist, the hooks are registered, nothing else ha
 From any session:
 
 ```
-/brain init ~/vaults/personal
+/brain:init ~/vaults/personal
 ```
 
 It asks one question — *which directories should feed this vault?* — with `~/**` as the default. Then it:
@@ -29,7 +29,7 @@ It asks one question — *which directories should feed this vault?* — with `~
    ~/vaults/personal/
    ├── CLAUDE.md        local overrides and glossary — starts almost empty
    ├── .gitignore       .state/
-   ├── sessions/  worklog/  inbox/
+   ├── sources/sessions/  sources/refs/
    ├── me/  people/  projects/  decisions/  topics/
    ├── index.md         empty catalog
    ├── log.md           one entry: ## [date] init | vault created
@@ -56,7 +56,7 @@ Whether the vault gets a remote is up to you (`git remote add origin <private re
 ### A second vault
 
 ```
-/brain init ~/vaults/work
+/brain:init ~/vaults/work
 ```
 
 Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at the **front** of the `vaults` list, so a specific vault added after a catch-all one takes precedence without editing anything. Reorder or add `exclude` globs in `config.json` by hand when the defaults are not right.
@@ -64,26 +64,26 @@ Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at
 ## 3. Backfill what already exists
 
 ```
-/brain distill --all
+/brain:distill --all
 ```
 
-Walks every transcript under `transcripts`, routes each by its `cwd`, skips the ones that match no vault, and writes a digest per session into the right vault's `sessions/`. Prints what it skipped and why (no vault matched, secret gate tripped). Safe to run again; it is a no-op the second time.
+Walks every transcript under `transcripts`, routes each by its `cwd`, skips the ones that match no vault, and writes a digest per session into the right vault's `sources/sessions/`. Prints what it skipped and why (no vault matched, too short, secret gate tripped). Safe to run again; it is a no-op the second time. One small-model call per session, so on a long history start with `--days 30` and look at a few digests before running the rest.
 
 ## 4. Use Claude as usual
 
-Nothing to do. When a session ends, its digest appears in the routed vault's `sessions/`. When a session starts, the hook prints one line if there is anything waiting:
+Nothing to do. When a session ends, its digest appears in the routed vault's `sources/sessions/`. When a session starts, the hook prints one line if there is anything waiting:
 
 ```
-[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain ingest
+[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest
 ```
 
-## 5. Ingest when you want to
+## 5. Ingest when you want to *(later)*
 
 ```
-/brain ingest
+/brain:ingest
 ```
 
-Acts on the vault the current directory routes to (or `--vault work`). Collects your hand edits since the last ingest, integrates pending digests and work log entries into the wiki, rewrites `index.md`, appends to `log.md`, recompiles `brief.md`, commits, and finishes by asking you to decide each conflict it recorded.
+Acts on the vault the current directory routes to (or `--vault work`). Collects your hand edits since the last ingest, integrates pending digests and refs into the wiki, rewrites `index.md`, appends to `log.md`, recompiles `brief.md`, commits, and finishes by asking you to decide each conflict it recorded.
 
 Open the vault in Obsidian or any editor and read what it wrote. Correct anything wrong directly in the page; the next ingest treats your edit as the highest-priority source.
 
@@ -91,11 +91,11 @@ Open the vault in Obsidian or any editor and read what it wrote. Correct anythin
 
 - `inject_brief: true` in `config.json` *(later)* — the session-start hook adds the routed vault's `brief.md` to every session's context. Per machine; nothing in your Claude config changes.
 - `distill_model` — the model the distill runner passes to `claude -p`. Small is fine; distill is mechanical.
-- `/brain lint` *(later)* — health report: unresolved conflicts, stale pages, orphans, digests never ingested, claims that contradict Claude's built-in memory.
+- `/brain:lint` *(later)* — health report: unresolved conflicts, stale pages, orphans, digests never ingested, claims that contradict Claude's built-in memory.
 
 ## Working inside the vault
 
-Opening Claude with the vault as the working directory is how you query it (`/brain query`, or just ask — the vault's `CLAUDE.md` plus the schema the hook injects tell the agent how the vault is organised). Sessions held inside a vault are never distilled; they are not sources.
+Opening Claude with the vault as the working directory is how you query it (`/brain:query`, or just ask — the vault's `CLAUDE.md` plus the schema the hook injects tell the agent how the vault is organised). Sessions held inside a vault are never distilled; they are not sources.
 
 ## What the hook does with the schema
 

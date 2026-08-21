@@ -1,0 +1,12 @@
+{
+  "name": "brain",
+  "version": "0.1.0",
+  "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work.",
+  "author": {
+    "name": "Mian Yang"
+  },
+  "homepage": "https://github.com/minanyang/brain",
+  "repository": "https://github.com/minanyang/brain",
+  "license": "MIT",
+  "keywords": ["knowledge-base", "wiki", "memory", "sessions"]
+}

@@ -7,9 +7,9 @@ This is the default schema a vault inherits. The plugin injects it at the start 
 ```
 vault/
 ├── CLAUDE.md            local overrides and glossary only; the schema itself is injected by the plugin
-├── sessions/            immutable session digests
-├── worklog/             one file per day
-├── inbox/               hand-dropped sources; inbox/done/ after ingest
+├── sources/             immutable, machine- or hand-written; never browsed, only ingested
+│   ├── sessions/        one digest per session
+│   └── refs/            articles, links, documents handed over on purpose
 ├── me/ people/ projects/ decisions/ topics/   default page types; vaults may add more
 ├── index.md  log.md  brief.md
 └── .state/              per-machine, gitignored
@@ -17,7 +17,7 @@ vault/
 
 ## Page types
 
-The default set is `me`, `person`, `project`, `decision`, `topic`, mapping to the five directories above. A vault may declare additional types in its `CLAUDE.md`:
+The default set is `me`, `person`, `project`, `decision`, `topic`, mapping to the five directories above. A vault may declare additional page types — and additional source directories under `sources/`, such as a daily journal — in its `CLAUDE.md`:
 
 ```markdown
 ## Page types
@@ -38,14 +38,14 @@ brief: false          # true → included when brief.md is compiled
 volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts
 updated: 2026-08-21
-sources: [sessions/2026-08-05-invoice-retry.md, worklog/2026-08-12.md]
+sources: [sources/sessions/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
 ---
 ```
 
 ## Page body conventions
 
 - Lead with a two-sentence summary. The rest is headed sections.
-- Every non-obvious claim cites its source inline: `(→ sessions/2026-08-05-invoice-retry.md)`. A claim that came from a human edit is cited `(→ human, 2026-08-22)`.
+- Every non-obvious claim cites its source inline: `(→ sources/sessions/2026-08-05-invoice-retry.md)`. A claim that came from a human edit is cited `(→ human, 2026-08-22)`.
 - Human-sourced claims outrank digest-sourced ones. Ingest may not remove or alter them; a later digest that contradicts one is recorded under `## Conflicts`, not applied. Humans edit pages directly — ingest detects the edits from git (see architecture.md, ingest step 0); no special syntax is required.
 - Link other pages with `[[directory/page]]`. Link liberally; a link to a page that does not exist yet is a TODO for ingest, not an error.
 - Dates are absolute (`2026-08-21`), never relative ("last week").
@@ -82,21 +82,28 @@ Facts worth keeping, each tagged:
 
 ## Continued (YYYY-MM-DD)
 Appended when a session is resumed after it was first distilled. Same sections.
+
+## Part 2 of N
+Present when the session was too long for one model call. Same sections.
 ```
 
 The distiller is instructed: no code blocks longer than 5 lines, no tool output, no secrets or tokens, no speculation — only what the transcript supports.
 
-## Work log template
+## Ref template
 
 ```markdown
-# 2026-08-21
+---
+url: https://example.com/posts/idempotent-workers
+title: Designing idempotent background workers
+added: 2026-08-21
+why: the retry design for the invoice worker should follow this
+ingested: false
+---
 
-## From sessions
-Drafted by ingest from that day's digests. One line per session with a link.
-
-## Elsewhere
-Written by the human. Meetings, decisions, org news, mood. Terse is fine.
+<extracted text of the article or document, as markdown>
 ```
+
+`why` is written by the human and is the only part ingest treats as an opinion; the body is treated as an external source and cited as such.
 
 ## index.md
 

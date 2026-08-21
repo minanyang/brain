@@ -1,0 +1,14 @@
+{
+  "name": "brain",
+  "owner": {
+    "name": "Mian Yang"
+  },
+  "description": "Brain: a pattern for distilling agent sessions and work logs into a maintained wiki.",
+  "plugins": [
+    {
+      "name": "brain",
+      "source": "./",
+      "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work."
+    }
+  ]
+}

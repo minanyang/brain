@@ -15,11 +15,10 @@ Claude Code is the reference stream and the only one implemented. Adding another
 
 ### 1 — Sources
 
-Immutable once written. Live in the vault. Each is small, dated, and carries provenance.
+Immutable once written. Live under `sources/` in the vault — one directory, so the machine-written material stays out of the way of the pages a human actually browses. Each is small, dated, carries provenance, and records whether ingest has consumed it (`ingested:` in its frontmatter; nothing is moved after processing).
 
-- `sessions/<YYYY-MM-DD>-<slug>.md` — one digest per session. Slug comes from the transcript's `ai-title` when present, else from the first user message.
-- `worklog/<YYYY-MM-DD>.md` — one file per day. Ingest drafts a `## From sessions` section from that day's digests; the human adds `## Elsewhere` for everything that happened outside an agent session.
-- `inbox/*.md` — hand-dropped documents. Moved to `inbox/done/` after ingest.
+- `sources/sessions/<YYYY-MM-DD>-<slug>.md` — one digest per session. Slug comes from the transcript's `ai-title` when present, else from the first user message.
+- `sources/refs/<YYYY-MM-DD>-<slug>.md` — material the human hands over deliberately: an article, a link, a document, meeting notes. Frontmatter records the URL or origin, the date, and one line from the human on why it matters — that line is what tells ingest where the content belongs. The body is the extracted text itself: a ref is an immutable copy, because links rot and pages change. A link merely mentioned in a session does not become a ref; the digest cites it and moves on. Refs arrive either by hand (drop a file in) or, later, through `/brain:clip <url>`.
 
 #### Why digests are their own layer
 
@@ -27,7 +26,7 @@ The obvious design is three layers — transcripts straight into the wiki. Diges
 
 - **Transcripts are read once.** Everything downstream — re-integrating after a schema change, lint, rebuilding the wiki from scratch — re-reads the digests, never the JSONL. Distill is the only step that touches the expensive, noisy stream, and it runs with a small model.
 - **Provenance is a chain.** A wiki claim cites a digest; a digest cites a session id and timestamp; the session id locates the exact transcript on the machine that produced it. Each hop is checkable, and the wiki never has to embed raw transcript text to be auditable.
-- **Two perspectives, one layer.** Session digests are the collaboration's view of the work: what was built, decided, learned with the agent. The work log is the human's view: meetings, org changes, decisions made elsewhere, mood. Neither alone describes the job; stacked, they do — which is what lets the wiki come to understand the work and the people around it rather than only the codebase.
+- **Two perspectives, one layer.** Session digests are the collaboration's view of the work: what was built, decided, learned with the agent. Refs are the human's deliberate additions: the article that shaped a decision, the meeting notes, the document a project is built on. Neither alone describes the job; stacked, they do — which is what lets the wiki come to understand the work and the people around it rather than only the codebase. There is deliberately no daily journal in the defaults: a source that only has value if the human writes in it every day is a source that goes empty in two weeks. What happened outside a session gets in by being mentioned in the next one. A vault whose owner does keep a journal declares the directory in its `CLAUDE.md`, like any extra page type.
 
 ### 2 — Wiki
 
@@ -72,7 +71,7 @@ Which sessions get distilled, and into which vault, is decided by the session's 
 - A session's `cwd` is matched against the vaults in order; the first match wins. **A session goes to exactly one vault** — no fan-out, so work content cannot land in a personal vault by accident.
 - A `cwd` that matches no vault is not distilled. Scope is therefore whatever the `include` lists cover; global exclusions go on the last vault.
 - Sessions whose `cwd` is inside a vault are never distilled.
-- Every operation follows the same routing. The `SessionStart` hook injects the reminder (and brief, if enabled) of the vault the current `cwd` routes to, so the agent sees the work brief in work repositories and the personal one elsewhere. `/brain ingest`, `query`, and `lint` act on the current `cwd`'s vault by default and accept `--vault <name>`.
+- Every operation follows the same routing. The `SessionStart` hook injects the reminder (and brief, if enabled) of the vault the current `cwd` routes to, so the agent sees the work brief in work repositories and the personal one elsewhere. `/brain:ingest`, `query`, and `lint` act on the current `cwd`'s vault by default and accept `--vault <name>`.
 - `.state/`, the `brain/last-ingest` tag, and the one-ingesting-machine rule are all per vault.
 
 Routing controls *where* a session is filed, not *what was said in it*: a work conversation held in a personal directory ends up in the personal vault. That is a habit, not something the tooling can fix; lint can flag claims carrying a vault-defined tag (say `[company]`) appearing in a vault that does not declare that type.
@@ -81,8 +80,8 @@ Routing controls *where* a session is filed, not *what was said in it*: a work c
 
 | Component | Lives in | Installed to |
 | --- | --- | --- |
-| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | this repo | the repo is its own marketplace: `/plugin marketplace add miayang0513/brain`, then `/plugin install brain@brain` |
-| `/brain` skills (`init`, `ingest`, `query`, `lint`; `distill` for manual runs), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin; or into any other agent with `npx skills add miayang0513/brain` |
+| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | this repo | the repo is its own marketplace: `/plugin marketplace add minanyang/brain`, then `/plugin install brain@brain` |
+| `/brain` skills (`init`, `ingest`, `query`, `lint`; `distill` for manual runs), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin; or into any other agent with `npx skills add minanyang/brain` |
 | Hooks (`SessionEnd` → distill, `SessionStart` → catch-up distill + pending-digest reminder) | this repo (`hooks/hooks.json`) | registered by the plugin |
 | Deterministic scripts (transcript extractor, distill runner, secret gate, state, lock, `brain/last-ingest` tag) | this repo (`scripts/`) | called by skills and hooks via `${CLAUDE_PLUGIN_ROOT}` |
 | Default schema, page and digest templates | this repo (`docs/schema.md`, `templates/`) | read by the skills from the plugin root; the schema is injected into in-vault sessions by the `SessionStart` hook |
@@ -105,20 +104,23 @@ or (on SessionStart) for each transcript newer than its recorded state:
     drop: tool_result bodies beyond ~300 chars, file-history events, attachments, system noise
     keep: user messages, assistant text, tool_use command summaries, timestamps, cwd, branch
     → clean conversation text
-    → cheap model + digest template → sessions/<date>-<slug>.md   (or append a "## Continued" section if the digest already exists)
+    → cheap model + digest template → sources/sessions/<date>-<slug>.md   (or append a "## Continued" section if the digest already exists)
     record {session_id: {offset, digest_path, last_ts}} in .state/distilled.json
+commit sources/sessions/ and log.md
 ```
 
 Properties that matter:
 
 - **Idempotent.** Re-running with the same state produces no changes.
 - **Incremental.** A resumed session is processed from where it was left.
-- **Mechanical.** The model is asked to summarize into a fixed template, not to exercise judgment about the wiki. A small model is enough.
-- **Gated.** Output passes a secret-pattern scan before it is written. See [privacy.md](privacy.md).
+- **Mechanical.** The model is asked to summarize into a fixed template, not to exercise judgment about the wiki. A small model is enough — but a small model on a very long input drifts, so the instruction is repeated after the transcript, the output is checked for the expected headings, and a malformed answer is retried once and otherwise not written.
+- **Bounded.** Transcripts longer than the model should see in one call are split at turn boundaries and summarized in parts; the digest carries `## Part k of n` sections. Long sessions are common — a day of work can be tens of megabytes of JSONL.
+- **Gated.** Credential patterns are redacted from the transcript text before the model sees it, and the output passes the secret gate before it is written. See [privacy.md](privacy.md).
+- **Commits only its own files.** Distill commits `sources/sessions/` and `log.md` and nothing else, so every change under the wiki directories between two ingests is still a human edit (see ingest step 0).
 
 ### ingest
 
-**Step 0 — collect human corrections.** The vault is a git repository and ingest is its only non-human committer. After each ingest it moves the tag `brain/last-ingest`. Before the next ingest it runs `git diff brain/last-ingest -- me/ people/ projects/ decisions/ topics/` (plus any directories the vault declares) (working tree included, so an edit saved in Obsidian counts without a commit). Every hunk in that diff is a human edit. The hunks are handed to ingest as a source that outranks every digest, and the claims they carry are cited as `(→ human, YYYY-MM-DD)` when the page is rewritten.
+**Step 0 — collect human corrections.** The vault is a git repository and ingest is the only non-human process that commits wiki pages. After each ingest it moves the tag `brain/last-ingest`. Before the next ingest it runs `git diff brain/last-ingest -- me/ people/ projects/ decisions/ topics/` (plus any directories the vault declares) (working tree included, so an edit saved in Obsidian counts without a commit). Every hunk in that diff is a human edit. The hunks are handed to ingest as a source that outranks every digest, and the claims they carry are cited as `(→ human, YYYY-MM-DD)` when the page is rewritten.
 
 Then, for each source not yet marked as ingested:
 
@@ -155,17 +157,17 @@ Distill and ingest are triggered differently because they are different kinds of
 
 | Op | Trigger | Why |
 | --- | --- | --- |
-| distill | `SessionEnd` hook, async | The payload names the transcript; no scanning. Cheap and mechanical, so it can run unattended. |
-| distill (catch-up) | `SessionStart` hook `brain-catchup`, async | Sessions that ended without a clean `SessionEnd` (closed terminal, crash, `claude -p` runs) are picked up the next time the user opens the agent. Together the two hooks give complete coverage with no scheduler. |
-| status reminder | `SessionStart` hook `brain-status`, **sync**, `startup\|clear\|compact` | Reads `.state/` only, so it is fast, and returns `hookSpecificOutput.additionalContext` with one line: `[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain ingest`. If brief injection is enabled (open question), the brief rides in the same payload; if the working directory is a vault, so does the schema. Separate from the catch-up hook so the reminder never waits on a distill. |
-| ingest | `/brain ingest`, deliberate | Expensive, judgment-heavy, rewrites many pages. Running it in the background on random session starts would spend tokens invisibly, change `brief.md` unpredictably mid-day, and race across concurrent sessions. Automating it later is a one-line change in `hooks.json`, not an architecture change. |
-| query, lint | `/brain query`, `/brain lint` | Interactive by nature. |
+| distill | `SessionEnd` hook, forks to the background | The payload names the transcript; no scanning. `SessionEnd` hooks get about 1.5 s, so the hook only spawns the runner and returns; output goes to `~/.brain/logs/distill.log`. |
+| distill (catch-up) | `SessionStart` hook `brain-catchup`, `startup` only, forks to the background | Sessions that ended without a clean `SessionEnd` (closed terminal, crash, `claude -p` runs) are picked up the next time the user opens the agent; it looks at transcripts modified in the last 7 days, so a fresh install does not silently backfill years of history — that is `/brain:distill --all`. Together the two hooks give complete coverage with no scheduler. |
+| status reminder | `SessionStart` hook `brain-status`, **sync**, `startup\|clear\|compact` | Reads `.state/` only, so it is fast, and returns `hookSpecificOutput.additionalContext` with one line: `[brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest`. If brief injection is enabled (open question), the brief rides in the same payload; if the working directory is a vault, so does the schema. Separate from the catch-up hook so the reminder never waits on a distill. |
+| ingest | `/brain:ingest`, deliberate | Expensive, judgment-heavy, rewrites many pages. Running it in the background on random session starts would spend tokens invisibly, change `brief.md` unpredictably mid-day, and race across concurrent sessions. Automating it later is a one-line change in `hooks.json`, not an architecture change. |
+| query, lint | `/brain:query`, `/brain:lint` | Interactive by nature. |
 
 Rejected: `Stop` hook (fires every turn); a scheduler such as launchd or cron (an extra install step per machine, runs on days with nothing to do, and hooks already give complete coverage — documented as an alternative for anyone who wants fully unattended ingest); cloud scheduled agents (cannot read local transcripts).
 
 Two guards the hooks need:
 
-- **Recursion.** The distill runner calls `claude -p` for the summary, and that inner run fires hooks too. The runner sets `BRAIN_INNER=1`; hook scripts exit immediately when it is set. Sessions whose `cwd` is the vault are also skipped — the `/brain ingest` conversation is not itself a source.
+- **Recursion.** The distill runner calls `claude -p` for the summary, and that inner run could fire hooks too. The runner sets `BRAIN_INNER=1` (hook scripts exit immediately when it is set), runs with `--no-session-persistence` so no transcript is written, and loads no settings. Sessions whose `cwd` is the vault are also skipped — the `/brain:ingest` conversation is not itself a source.
 - **Concurrency.** Several sessions can end or start at once. Distill takes an atomic lock (`mkdir .state/lock`) and the catch-up pass skips if the lock is held.
 
 ## Relationship to built-in agent memory
@@ -181,18 +183,18 @@ Claude Code's auto-memory (`~/.claude/projects/<project>/memory/`) is a per-proj
 
 If the vault is synced across machines with git:
 
-- Each machine distills **its own** transcripts into `sessions/` and drafts **its own** `worklog/` sections. These are new files or appends — they merge cleanly.
+- Each machine distills **its own** transcripts into `sources/sessions/`. These are new files or appends — they merge cleanly.
 - **Ingest runs on one machine only.** Two machines rewriting `index.md`, `brief.md`, and entity pages will conflict daily. The `brain/last-ingest` tag therefore lives on that machine; human edits made elsewhere are seen once they are pushed.
-- State files under `.state/` are per-machine and gitignored; distill discovers "what is new" from the vault's `sessions/` directory, not only from local state.
+- State files under `.state/` are per-machine and gitignored; distill discovers "what is new" from the vault's `sources/sessions/` directory, not only from local state.
 
 ## Porting to another host
 
 Brain is built and tested as a Claude Code plugin. The pattern is host-neutral; the automation is not. On another agent you get the documents and the skills and supply the plumbing:
 
-1. **Skills.** `skills/*/SKILL.md` follow the Agent Skills standard; `npx skills add` or copying the directories into the agent's skills folder gives you `/brain init`, `ingest`, `query`, and `lint`. Untested until the skills exist.
+1. **Skills.** `skills/*/SKILL.md` follow the Agent Skills standard; `npx skills add` or copying the directories into the agent's skills folder gives you `/brain:init`, `ingest`, `query`, and `lint`. Untested until the skills exist.
 2. **Schema.** Nothing injects `docs/schema.md`. Put it where the agent reads vault instructions — the vault's `AGENTS.md` — and refresh it when Brain updates.
 3. **Transcripts.** `scripts/extract-transcript.sh` reads Claude Code's JSONL. Write a converter from the other agent's transcript format to the same intermediate form: one line per turn with `timestamp`, `role`, `text`, `cwd`. The distill runner does not care what produced it.
-4. **Trigger.** Nothing fires distill. Run `/brain distill` by hand, or wire `scripts/distill.sh` into a session-end hook if the agent has one, otherwise cron.
+4. **Trigger.** Nothing fires distill. Run `/brain:distill` by hand, or wire `scripts/distill.sh` into a session-end hook if the agent has one, otherwise cron.
 
 A native port packages exactly these: the host-specific files are `hooks/` and the extractor; everything else is shared.
 
