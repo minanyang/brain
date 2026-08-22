@@ -9,7 +9,7 @@ cd "$vp"
 
 summary() { # first non-empty, non-heading line after the frontmatter, cut at the first sentence end
   awk 'BEGIN{fm=0} NR==1 && /^---$/ {fm=1; next} fm==1 && /^---$/ {fm=2; next} fm==2 && !/^\s*$/ && !/^#/ && !/^<!--/ {print; exit}' "$1" \
-    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/(\.|。)( |$).*/\1/' | awk '{ if (length($0) > 220) print substr($0, 1, 219) "…"; else print }'
+    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/(\.|。)( |$).*/\1/' | jq -Rr 'if length > 220 then .[0:219] + "…" else . end'   # jq slices by code point, never mid-character
 }
 
 {
