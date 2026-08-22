@@ -21,6 +21,11 @@ done
 pv=$(jq -r .version .claude-plugin/plugin.json)
 mv=$(jq -r '.plugins[0].version // empty' .claude-plugin/marketplace.json)
 [ "$pv" = "$mv" ] || { say "FAIL" "version mismatch: plugin.json $pv vs marketplace.json ${mv:-none}"; fail=1; }
+# The plugin's description is copied into the marketplace entry, so it can drift the way
+# version can. Whichever of the two a browser reads must say the same thing.
+pd=$(jq -r .description .claude-plugin/plugin.json)
+md=$(jq -r '.plugins[0].description // empty' .claude-plugin/marketplace.json)
+[ "$pd" = "$md" ] || { say "FAIL" "description mismatch between plugin.json and marketplace.json"; fail=1; }
 say "ok" "manifests"
 
 for d in skills/*/; do
@@ -48,7 +53,14 @@ else
 fi
 
 if command -v claude >/dev/null; then
-  claude plugin validate . --strict >/dev/null 2>&1 || { say "FAIL" "claude plugin validate"; fail=1; }
+  claude plugin validate . --strict >/dev/null 2>&1 || { say "FAIL" "claude plugin validate: marketplace.json"; fail=1; }
+  # `validate .` reads only marketplace.json, so plugin.json went unchecked until now. Its own
+  # run warns that the repo-root CLAUDE.md is not shipped as plugin context — that file is
+  # maintainer notes and belongs at the root, where Claude Code loads it — so ignore that one
+  # line and fail on every other warning, which is what --strict is for.
+  out=$(claude plugin validate .claude-plugin/plugin.json --strict 2>&1)
+  other=$(printf '%s\n' "$out" | grep '❯' | grep -v 'CLAUDE.md at the plugin root' || true)
+  [ -n "$other" ] && { say "FAIL" "claude plugin validate: plugin.json"; printf '%s\n' "$other"; fail=1; }
   say "ok" "plugin validate"
 fi
 
