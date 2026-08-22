@@ -81,7 +81,7 @@ Facts worth keeping, each tagged:
 - Things left unfinished or explicitly deferred.
 
 ## Continued (YYYY-MM-DD)
-Appended when a session is resumed after it was first distilled. Same sections.
+Appended when a session is resumed after it was first distilled. Same sections. Appending also resets `ingested` to `false`, so the new part is integrated by the next ingest.
 
 ## Part 2 of N
 Present when the session was too long for one model call. Same sections.

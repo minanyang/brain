@@ -187,6 +187,8 @@ process() {
 
   if [ "$mode" = continued ]; then
     printf '\n%s\n' "$body" >> "$vpath/$digest"
+    # New material in an already-ingested digest must be ingested again.
+    sed -i '' 's/^ingested: true$/ingested: false/' "$vpath/$digest" 2>/dev/null || sed -i 's/^ingested: true$/ingested: false/' "$vpath/$digest"
   else
     local slug
     slug=$(slugify "$title"); [ -n "$slug" ] || slug="${session:0:8}"
