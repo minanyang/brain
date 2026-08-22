@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work. A session-end hook digests each transcript; /brain:ingest folds them into Markdown pages in a local git repo you own, where your own edits outrank the agent's.",
   "author": {
     "name": "Mian Yang"
