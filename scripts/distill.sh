@@ -41,6 +41,12 @@ trap 'rm -r "$work"' EXIT
 
 say() { [ $quiet = 1 ] || log "$@"; }
 
+# Why a transcript produced no digest. The hooks always pass --quiet, so on a scan
+# these stay silent (one line per unrouted transcript would bury the log), but when a
+# single transcript was named — what the SessionEnd hook does — its outcome is the
+# whole point of the run and "0 written, 1 skipped" with no reason is unreadable.
+say_skip() { if [ ${#files[@]} = 1 ]; then log "$@"; else say "$@"; fi; }
+
 to_local_date() { # ISO timestamp → YYYY-MM-DD in local time
   local ts="${1%%.*}"
   date -j -u -f '%Y-%m-%dT%H:%M:%S' "$ts" '+%Y-%m-%d' 2>/dev/null \
@@ -110,14 +116,14 @@ well_formed() { # <text> <expected section header or "">
 
 process() {
   local file="$1" meta session cwd branch title first_ts last_ts end
-  meta=$("$BRAIN_ROOT/scripts/extract-transcript.sh" --meta "$file") || { say "unreadable: $file"; skipped=$((skipped+1)); return; }
+  meta=$("$BRAIN_ROOT/scripts/extract-transcript.sh" --meta "$file") || { say_skip "unreadable: $file"; skipped=$((skipped+1)); return; }
   session=$(jq -r '.session // empty' <<<"$meta")
-  [ -n "$session" ] || { say "no session id: $file"; skipped=$((skipped+1)); return; }
+  [ -n "$session" ] || { say_skip "no session id: $file"; skipped=$((skipped+1)); return; }
   cwd=$(jq -r '.cwd // empty' <<<"$meta")
   end=$(jq -r '.end' <<<"$meta")
 
   local vault vpath
-  vault=$(route "$cwd") || { say "no vault for $cwd ($session)"; skipped=$((skipped+1)); unrouted=$((unrouted+1)); return; }
+  vault=$(route "$cwd") || { say_skip "no vault for $cwd ($session)"; skipped=$((skipped+1)); unrouted=$((unrouted+1)); return; }
   vpath=$(vault_path "$vault")
   [ -d "$vpath" ] || { log "vault $vault missing at $vpath"; skipped=$((skipped+1)); return; }
 
@@ -136,7 +142,7 @@ process() {
     if [ -n "$digest" ]; then
       jq --arg s "$session" --argjson o "$end" '.[$s].offset = $o' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
     fi
-    say "too short, skipped: $session"; skipped=$((skipped+1)); return
+    say_skip "too short, skipped: $session"; skipped=$((skipped+1)); return
   fi
 
   branch=$(jq -r '.branch // ""' <<<"$meta")
@@ -247,10 +253,11 @@ for v in $written_in; do
 done
 
 log "done: $written written, $skipped skipped, $blocked blocked by secret gate"
-# A cwd that matches no vault is normal for a session held inside a vault, but if
-# nothing at all routed, the include globs are the likely cause and the message
-# above looks identical either way.
-if [ "$written" = 0 ] && [ "$unrouted" -gt 0 ]; then
+# A cwd that matches no vault is normal — a session inside a vault, or one in a
+# directory no vault claims — so this is only evidence of a wrong include glob when a
+# whole scan missed. Keyed on unrouted > 0 it cried wolf on every scan that happened
+# to write nothing; a named transcript gets its reason from say_skip instead.
+if [ $all = 1 ] && [ "$written" = 0 ] && [ "$unrouted" = "${#files[@]}" ]; then
   log "none of the $unrouted transcript(s) matched a vault — check the include globs:"
   jq -r '.vaults[] | "  \(.name): \(.include // [] | join(" "))"' "$BRAIN_CONFIG" >&2
 fi
