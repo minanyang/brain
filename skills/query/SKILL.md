@@ -18,7 +18,7 @@ Answer `$ARGUMENTS` from the vault, not from memory. The schema is injected at s
 4. If the answer is a synthesis worth keeping — a comparison, a timeline, a post-mortem, a how-to that spans several pages — file it: write a page under `topics/`, `decisions/` if it documents a decision, or any directory the vault's `CLAUDE.md` declares, from `${CLAUDE_PLUGIN_ROOT}/templates/page.md`, with `sources:` listing the digests the cited pages cite, then run
 
    ```
-   "${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh" --vault <path> --op query --note "<question> → filed <dir/page>"
+   "${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh" --vault <path> --op query --add <the page you filed> --note "<question> → filed <dir/page>"
    ```
 
    which gates, regenerates `index.md` and `brief.md`, logs and commits. File only when the answer needed two or more pages and the question is one that will be asked again; when in doubt, answer and file nothing. A plain factual answer leaves no log entry. If finish reports open conflicts, mention them; do not resolve them here.

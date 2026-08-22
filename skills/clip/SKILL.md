@@ -20,7 +20,7 @@ Turn `$ARGUMENTS` into a ref. A ref is an immutable copy of something the user h
    ```
 
    It runs the secret gate and prints the path it wrote. If the gate blocks, show the user the line it matched and ask whether to drop it; if they agree, remove that line from the temp file and run `ref.sh` again.
-6. Commit: `"${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh" --vault <path> --op clip --note "<title>"`.
+6. Commit: `"${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh" --vault <path> --op clip --add <the ref ref.sh wrote> --note "<title>"`.
 7. Report the path and remind the user that the ref is `ingested: false` until the next `/brain:ingest`.
 
 Never summarize, reformat, or repair the body — not the headings, not the dead links. A ref is an immutable copy precisely because the page will change or vanish, and a repaired copy is no longer evidence of what it said.

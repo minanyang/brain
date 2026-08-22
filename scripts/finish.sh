@@ -11,13 +11,14 @@
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-vp="" list="" note="" op=""
+vp="" list="" note="" op="" add=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --vault) vp=$(expand_home "$2"); shift ;;
     --op) op="$2"; shift ;;
     --sources) list="$2"; shift ;;
     --note) note="$2"; shift ;;
+    --add) shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do add+=("$1"); shift; done; continue ;;
   esac
   shift
 done
@@ -68,7 +69,19 @@ case "$op" in
 esac
 
 lock_wait "$vp" || { echo "vault is locked; commit skipped" >&2; exit 1; }
-git add -A >/dev/null
+# Only ingest may stage the whole tree: it is the op that reads human edits and
+# rewrites the pages. Every other op stages just the generated files and whatever
+# it wrote, because a human edit swept into a Brain commit disappears from the
+# next ingest's human-edit diff (which excludes Brain's own commits) and would
+# never be cited as (→ human, …) again.
+if [ "$op" = ingest ]; then
+  git add -A >/dev/null
+else
+  git add index.md brief.md log.md >/dev/null 2>&1 || true
+  [ ${#add[@]} -gt 0 ] && git add -- "${add[@]}" >/dev/null 2>&1 || true
+  left=$(git status --porcelain -- . ':(exclude)index.md' ':(exclude)brief.md' ':(exclude)log.md' | grep -v '^[MARD]  ' || true)
+  [ -n "$left" ] && printf 'left uncommitted (not this op'"'"'s to stage):\n%s\n' "$left" >&2
+fi
 if [ "$op" = ingest ]; then msg="ingest: $today — $n sources, $updated updated, $created created"; else msg="$op: $today — ${note:-$updated updated, $created created}"; fi
 git diff --cached --quiet || git commit -q -m "$msg"
 [ "$op" = ingest ] && git tag -f brain/last-ingest >/dev/null

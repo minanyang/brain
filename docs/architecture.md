@@ -132,7 +132,9 @@ Then, in batches of pending sources (oldest first, ~15 at a time, so that progre
 4. Finish the batch deterministically (`scripts/finish.sh --op ingest`): secret gate on every changed page, mark the sources `ingested: true`, regenerate `index.md` and `brief.md` from the pages, append to `log.md`, commit, move `brain/last-ingest`.
 5. When the run stops, list every `[open]` conflict it created and ask the human to decide each one now or leave it. A decision is written immediately as a `(→ human, date)` claim on the page; the entry becomes `[resolved <date>]`.
 
-Steps 1–3 are the skill's judgment; step 0 and step 4 are scripts (`ingest-prep.sh`, `finish.sh`). The split is the same as distill's: the agent decides what a fact means, and never touches the bookkeeping.
+Steps 1–3 are the skill's judgment; step 0 and step 4 are scripts (`ingest-prep.sh`, `finish.sh`).
+
+Only ingest may stage the whole vault. Every other operation stages `index.md`, `brief.md`, `log.md` and the file it wrote, and reports what it left alone — because a human edit swept into a Brain commit vanishes from the next ingest's human-edit diff, which excludes Brain's own commits, and would never be cited `(→ human, …)` again. The two safeguards otherwise cancel each other out. The split is the same as distill's: the agent decides what a fact means, and never touches the bookkeeping.
 
 Pages with `locked: true` are never rewritten; ingest may only append under their `## Conflicts`.
 
