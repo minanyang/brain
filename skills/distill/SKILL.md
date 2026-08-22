@@ -1,6 +1,6 @@
 ---
 name: distill
-description: Use when the user asks to backfill past sessions into the vault, or to distill one transcript by hand. Hooks distill each session automatically, so this is for backfills and one-offs.
+description: "Distill Claude Code transcripts into session digests in the routed vault, via the runner that redacts credentials, tracks byte offsets, and records state. Use when the user asks to backfill past sessions into their brain or vault, or to distill a specific transcript; the hooks do this automatically for each session as it ends, so this is for backfills and one-offs. Never do it by hand: raw transcripts bypass the secret gate, and hand-written digests get duplicated on the next run."
 argument-hint: "[--all] [--days N] [--jobs J] [<transcript.jsonl>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/distill.sh *)
 disable-model-invocation: true

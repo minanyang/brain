@@ -1,6 +1,6 @@
 ---
 name: ingest
-description: Use when the user asks to ingest, to integrate pending digests or refs, or to update the wiki — and when the session-start reminder says sources are pending.
+description: "Integrate a Brain vault's pending session digests and refs into its wiki pages — the multi-step pipeline of collecting human edits, classifying facts onto pages, recording contradictions, and committing through the vault's own scripts. Use whenever the user asks to ingest, to process or integrate pending sources or digests, to update or catch up their brain, vault or wiki, or acts on a session-start notice that sources are pending. Do not do this by hand: the pipeline preserves human corrections and provenance that hand-editing destroys."
 argument-hint: "[--vault <name>] [--batch N]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
 ---

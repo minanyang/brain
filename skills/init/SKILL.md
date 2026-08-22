@@ -1,6 +1,6 @@
 ---
 name: init
-description: Use when the user asks to create, set up, add, or register a Brain vault, or mentions /brain:init or starting a brain. Creates the vault and registers it with its routing globs.
+description: "Create a Brain vault and register it in ~/.brain/config.json with the routing globs that decide which sessions feed it. Use whenever the user asks to create, set up, add or register a vault, a brain, or a second vault for separate work — including when they have the plugin but no vault yet. Routing order is subtle enough to get wrong by hand: a new vault is inserted first and takes precedence."
 argument-hint: "<path>"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/init-vault.sh *), Read
 ---

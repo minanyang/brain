@@ -27,7 +27,10 @@ for d in skills/*/; do
   f="$d/SKILL.md"
   [ -f "$f" ] || { say "FAIL" "missing $f"; fail=1; continue; }
   grep -q '^name: ' "$f" || { say "FAIL" "no name: $f"; fail=1; }
-  grep -q '^description: Use when' "$f" || { say "FAIL" "description must start with 'Use when': $f"; fail=1; }
+  grep -qE '^description: ' "$f" || { say "FAIL" "no description: $f"; fail=1; }
+  grep -qi 'use when' "$f" || { say "FAIL" "description must say when to use the skill: $f"; fail=1; }
+  # A colon or a leading [ makes the value invalid YAML unless it is quoted.
+  awk -v F="$f" '/^(description|argument-hint): /{v=substr($0, index($0,": ")+2); if (v !~ /^"/ && (v ~ /: / || v ~ /^\[/)) {print "FAIL unquoted YAML value in " F; exit 1}}' "$f" || fail=1
   grep -q '^allowed-tools: Bash$' "$f" && { say "FAIL" "unscoped Bash: $f"; fail=1; }
   n=$(wc -l < "$f")
   [ "$n" -le 200 ] || { say "FAIL" "over 200 lines ($n): $f"; fail=1; }

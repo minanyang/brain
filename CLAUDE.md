@@ -12,7 +12,7 @@ This repository is the public pattern and reference implementation. It must neve
 
 ## Writing a skill
 
-- `description` says **when to use it**, not what it does, and starts with "Use when…". A description that summarizes the workflow gets followed instead of the body.
+- `description` states **what the skill does and when to use it**, and where the agent could plausibly do the job by hand, says why it should not. Measured, not assumed: a description that gave only the trigger ("Use when the user asks to ingest…") did not fire at all — the agent read the vault's files itself instead — while the same skill fired reliably once the description named the operation and its stakes. Anthropic's own skills follow the same shape and its guidance calls for being "a little bit pushy". Do not summarize the step sequence, though: that gets followed in place of the body.
 - Frontmatter carries only what is needed: `name`, `description`, `argument-hint` when it takes arguments, `allowed-tools` scoped to the exact scripts it runs (`Bash(${CLAUDE_PLUGIN_ROOT}/scripts/<name>.sh *)`, never bare `Bash`), and `disable-model-invocation: true` for an operation the hooks already perform or that is expensive to start by accident.
 - The body is imperative, names each script with its exact invocation and what it prints, and never restates `docs/schema.md` — the schema is injected at session start inside a vault and referenced by path outside one.
 - Every prohibition carries its reason in the same sentence, and sits where the agent is about to break it, not at the end. Where the agent will negotiate with a rule rather than forget it (conflicts, human edits), add a two-column table of the excuse and why it is wrong.

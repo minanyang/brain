@@ -1,6 +1,6 @@
 ---
 name: clip
-description: Use when the user shares a link, article, or document and wants it kept — "clip this", "save this article", "bookmark this for my brain". Stores it as a ref for the next ingest.
+description: "Save an article, web page, or handed-over document into a Brain vault as an immutable ref for the next ingest, keeping the body verbatim and recording in the user's own words why it matters. Use whenever the user shares a link or text and wants it kept, clipped, saved, bookmarked, or remembered in their brain, vault or notes — as opposed to just read or summarized now."
 argument-hint: "<url or \"pasted\"> [why it matters] [--vault <name>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ref.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(grep *), Write, WebFetch
 ---
