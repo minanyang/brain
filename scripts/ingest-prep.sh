@@ -52,7 +52,17 @@ printf '\n'
 
 printf '## Human edits since last ingest\n\n'
 if git rev-parse -q --verify brain/last-ingest >/dev/null 2>&1; then
-  diff=$(git diff brain/last-ingest -- . ':(exclude)sources' ':(exclude)log.md' ':(exclude)index.md' ':(exclude)brief.md' ':(exclude).state' 2>/dev/null || true)
+  # Human edits are the uncommitted working tree plus commits since the tag that Brain
+  # did not make. Brain's own commits (query:, lint:, clip:, distill:) must never be
+  # read back as human edits — that would launder an agent's own writing into a claim
+  # that outranks every digest.
+  paths=(. ':(exclude)sources' ':(exclude)log.md' ':(exclude)index.md' ':(exclude)brief.md' ':(exclude).state')
+  diff=$(git diff -- "${paths[@]}" 2>/dev/null || true)
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    diff="$diff"$'\n'"$(git show --format= "$c" -- "${paths[@]}" 2>/dev/null || true)"
+  done < <(git log --format='%H %s' brain/last-ingest..HEAD 2>/dev/null \
+             | grep -vE '^[0-9a-f]+ (ingest|query|lint|clip|distill): ' | cut -d' ' -f1)
   untracked=$(git ls-files --others --exclude-standard -- $wiki_dirs 2>/dev/null || true)
   if [ -z "$diff" ] && [ -z "$untracked" ]; then printf '(none)\n'; else
     printf 'These hunks were written by a human. They outrank every source below; keep every claim they add, cite it as (→ human, %s).\n\n```diff\n%s\n```\n' "$(date +%Y-%m-%d)" "$diff"
