@@ -23,7 +23,7 @@ done < <(jq -r '.vaults[] | [.name, .path] | @tsv' "$BRAIN_CONFIG")
 [ -n "${vault:-}" ] || vault=$(route "$cwd") || vault=""
 if [ -n "$vault" ]; then
   vp=$(vault_path "$vault")
-  pending_files=$(grep -l '^ingested: false' "$vp"/sources/sessions/*.md 2>/dev/null || true)
+  pending_files=$(grep -l '^ingested: false' "$vp"/sources/*/*.md 2>/dev/null || true)
   pending=$(printf '%s' "$pending_files" | grep -c . || true)
   if [ "$pending" -gt 0 ]; then
     since=$(printf '%s\n' "$pending_files" | xargs -n1 basename | sort | head -1 | cut -c1-10)

@@ -60,7 +60,7 @@ When more than ~40 sources are pending, do not read them all into this context. 
 
 - Clusters that come from different working directories rarely touch the same pages; integrate them in parallel, one subagent per cluster, each briefed from `references/subagent-brief.md` with its own file list and the human-edit hunks that touch its pages.
 - The dominant cluster (usually one project with most of the sessions) is integrated serially in batches of ~25, one subagent per batch, each started fresh so it reads the pages as the previous batch left them. That cluster's subagents own `me/` pages.
-- Size a batch so the subagent never compacts — about 25 sources. A batch that hits compaction loses the pages it read first and writes worse than two smaller batches would. Ingest also rewards a stronger model than distill: splitting an overgrown page and noticing a file missing from its own list are things weaker models skip, so on a weaker model halve the batch and check the returned file list against the one you gave it.
+- Size each subagent's slice so it never compacts — about 25 sources (prep's own `--batch` default of 15 is for ordinary runs; here you are handing file lists to subagents, not reading a batch yourself). A batch that hits compaction loses the pages it read first and writes worse than two smaller batches would. Ingest also rewards a stronger model than distill: splitting an overgrown page and noticing a file missing from its own list are things weaker models skip, so on a weaker model halve the batch and check the returned file list against the one you gave it.
 - **Load `references/subagent-brief.md`** for the prompt each cluster subagent gets. Do NOT load it for an ordinary batch.
 - Subagents never run `finish.sh`, never commit, and never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md` or the sources.
 - After each subagent returns, merge its `.state/notes-*.md` into the pages they name, then run step 4 for that subagent's sources. Conflicts are asked about once at the very end.
@@ -71,7 +71,7 @@ When you stop, list every `[open]` conflict the run recorded (finish prints them
 
 Resolve what you can before asking. About half of accumulated conflicts are questions of fact rather than judgment — the repository, `git log`, the forge or the cloud console settles them. Verify those, write the winner into the page cited `(→ human, <today>, verified against <what you checked>)`, mark the entry `[resolved <today>] … — decided: <clause>`, and ask the human only where both claims stay defensible. A first ingest that hands over twenty-five questions gets no answer at all.
 
-For the rest, ask the human to decide each one, or leave it. For a decision: put the winning claim in the page body cited `(→ human, <today>)`, change the entry to `- [resolved <today>] …`, then commit with `git -C <vault> commit -am "ingest: resolve conflict on <page>"`.
+For the rest, ask the human to decide each one, or leave it. For a decision: put the winning claim in the page body cited `(→ human, <today>)`, change the entry to `- [resolved <today>] …`, then run `finish.sh --vault <path> --op ingest --note "resolve conflict on <page>"`, which gates the page you just edited and logs the decision.
 
 Report at the end: sources ingested, pages created and updated, conflicts open, and anything the glossary should learn (names you had to guess at).
 

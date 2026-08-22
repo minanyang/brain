@@ -26,7 +26,7 @@ Never raise `--jobs` far past 4: writes serialize on the vault lock, so extra ru
 
 Afterwards report the `done:` line — one per runner with `--jobs` — and triage the lines that name a session:
 
-- **Retries on its own**: `model call failed`, `malformed digest`, `too short, skipped`. State was left untouched, so say so and offer to re-run.
+- **Retries on its own**: `model call failed`, `malformed digest`. State was left untouched, so say so and offer to re-run.
 - **Will never clear itself**: `secret gate blocked`. Nothing was written and it is blocked again on every run until the transcript changes or the gate's patterns do; name the session id and stop — only the human can decide.
 - **Normal, not a problem**: `long session, N parts` (a transcript too long for one model call, split at turn boundaries into `## Part k of n`) and `too short, skipped` on a backfill.
 

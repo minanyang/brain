@@ -49,5 +49,5 @@ git diff --cached --quiet || git commit -q -m "init: vault created"
 cat <<EOF
 vault '$name' at $path
 registered in $BRAIN_CONFIG with include: ${includes[*]}
-next: /brain:distill --all   (backfill existing sessions; --days 30 for a smaller first run)
+next: /brain:distill --all   (backfill; add --days 30 for a smaller first run, --jobs 4 to parallelize)
 EOF

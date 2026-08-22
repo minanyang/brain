@@ -2,7 +2,7 @@
 name: init
 description: Use when the user asks to create, set up, add, or register a Brain vault, or mentions /brain:init or starting a brain. Creates the vault and registers it with its routing globs.
 argument-hint: <path>
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/init-vault.sh *)
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/init-vault.sh *), Read
 ---
 
 Create a vault at `$ARGUMENTS` (ask for a path if none was given).
@@ -18,7 +18,7 @@ Create a vault at `$ARGUMENTS` (ask for a path if none was given).
    ```
 
 4. Show its output verbatim. If it reports the name is already registered, ask for a different one. An existing directory is safe — the script reuses a repository rather than re-initializing it, and a vault created inside a directory an `include` already covers is safe too, because sessions whose cwd is inside any vault are never distilled.
-5. Point at the backfill, with its limit: `/brain:distill --days 30`. Claude Code deletes transcripts after about 30 days, so on a fresh install that is very nearly the whole history — `--all` is worth the extra calls only on a machine whose retention was raised.
+5. Point at the backfill, with its limit: `/brain:distill --all --days 30` (`--days` is read only when `--all` is set; on its own it distills nothing). Claude Code deletes transcripts after about 30 days, so on a fresh install that is very nearly the whole history — `--all` is worth the extra calls only on a machine whose retention was raised.
 
 Never create a remote: the vault holds distilled private conversations, and publishing it is a decision the owner makes later, once they have read what it actually contains.
 
