@@ -16,6 +16,7 @@ This repository is the public pattern and reference implementation. It must neve
 - Frontmatter carries only what is needed: `name`, `description`, `argument-hint` when it takes arguments, `allowed-tools` scoped to the exact scripts it runs (`Bash(${CLAUDE_PLUGIN_ROOT}/scripts/<name>.sh *)`, never bare `Bash`), and `disable-model-invocation: true` for an operation the hooks already perform or that is expensive to start by accident.
 - The body is imperative, names each script with its exact invocation and what it prints, and never restates `docs/schema.md` — the schema is injected at session start inside a vault and referenced by path outside one.
 - Every prohibition carries its reason in the same sentence, and sits where the agent is about to break it, not at the end. Where the agent will negotiate with a rule rather than forget it (conflicts, human edits), add a two-column table of the excuse and why it is wrong.
+- A skill stays under ~100 lines. Anything longer that is needed on a rare branch (a subagent brief, a migration recipe) goes in `skills/<name>/references/<file>.md`, loaded from the step that needs it and marked "Do NOT load" otherwise.
 - Run `./scripts/check.sh` before committing.
 
 ## Layout

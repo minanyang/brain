@@ -91,6 +91,8 @@ Routing controls *where* a session is filed, not *what was said in it*: a work c
 
 Updating Brain is a plugin update. Nothing is copied into the user's own skills, scripts, rules, or global instruction file, so it never gets entangled with whatever else they keep in their agent config. The plugin is one unit; the only per-machine state outside it is `~/.brain/config.json` and the vault.
 
+Each skill is a thin wrapper by design: the deterministic work is a script, the page format is the injected schema, and what stays in the skill is the judgment that belongs to that operation and the prohibitions with the reason attached. Descriptions say when to use a skill, never what it does, because a description that summarizes the workflow gets followed in place of the body.
+
 Why a plugin rather than a standalone CLI: ingest, query, and lint are agentic work — reading the index, judging where facts belong, rewriting pages — and a CLI would only have wrapped agent runs in shell. Skills are their native shape. Distill is the exception: it is mechanical, so it stays a script the skill and the hooks call, and is never itself a skill.
 
 ## Operations
