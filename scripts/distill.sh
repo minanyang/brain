@@ -2,9 +2,10 @@
 # Distill Claude Code transcripts into session digests.
 #
 #   distill.sh <transcript.jsonl> [...]     distill the given transcripts
-#   distill.sh --all [--days N]             every transcript under the configured
+#   distill.sh --all [--days N] [--jobs J]  every transcript under the configured
 #                                           roots (only those modified in the last
-#                                           N days when --days is given)
+#                                           N days when --days is given), J runners
+#                                           in parallel (default 1)
 #   distill.sh --quiet ...                  only report what was written or blocked
 #
 # For each transcript: route its cwd to a vault, read from the byte offset
@@ -19,11 +20,12 @@ set -euo pipefail
 [ "${BRAIN_INNER:-}" = 1 ] && exit 0
 config_exists || { log "no config at $BRAIN_CONFIG — run /brain:init first"; exit 0; }
 
-all=0 days="" quiet=0 files=()
+all=0 days="" quiet=0 jobs=1 files=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --all) all=1 ;;
     --days) days="$2"; shift ;;
+    --jobs) jobs="$2"; shift ;;
     --quiet) quiet=1 ;;
     *) files+=("$1") ;;
   esac
@@ -218,6 +220,20 @@ if [ $all = 1 ]; then
 fi
 
 [ ${#files[@]} -gt 0 ] || { say "nothing to distill"; exit 0; }
+
+if [ "$jobs" -gt 1 ] && [ ${#files[@]} -gt 1 ]; then
+  # Deal the files round-robin to J child runners. Writes are serialized by the
+  # vault lock and each child commits its own output.
+  i=0
+  for f in "${files[@]}"; do echo "$f" >> "$work/jobs-$((i % jobs))"; i=$((i+1)); done
+  for j in "$work"/jobs-*; do
+    ( while IFS= read -r f; do printf '%s\0' "$f"; done < "$j" | xargs -0 "$BRAIN_ROOT/scripts/distill.sh" $( [ $quiet = 1 ] && echo --quiet ) ) &
+  done
+  wait
+  log "done: $jobs runners finished (see the lines above for their counts)"
+  exit 0
+fi
+
 for f in "${files[@]}"; do [ -f "$f" ] && process "$f"; done
 
 for v in $written_in; do

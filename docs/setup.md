@@ -64,8 +64,11 @@ Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at
 ## 3. Backfill what already exists
 
 ```
-/brain:distill --all
+/brain:distill --days 7
+/brain:distill --all --jobs 4
 ```
+
+Start with a week, read a few digests, then run the rest. Claude Code keeps transcripts for 30 days by default (`cleanupPeriodDays`), so the backlog is at most a month unless you raised that; a heavy month is on the order of 150 sessions and half a gigabyte of JSONL, which `--jobs 4` distills in about 20 minutes with a small model.
 
 Walks every transcript under `transcripts`, routes each by its `cwd`, skips the ones that match no vault, and writes a digest per session into the right vault's `sources/sessions/`. Prints what it skipped and why (no vault matched, too short, secret gate tripped). Safe to run again; it is a no-op the second time. One small-model call per session, so on a long history start with `--days 30` and look at a few digests before running the rest.
 
@@ -85,6 +88,8 @@ Nothing to do. When a session ends, its digest appears in the routed vault's `so
 
 Acts on the vault the current directory routes to (or `--vault work`). Collects your hand edits since the last ingest, integrates pending digests and refs into the wiki in batches — each batch regenerates `index.md` and `brief.md`, appends to `log.md`, and commits — and finishes by asking you to decide each conflict it recorded. It uses the session's model, so pick one with `/model` first; a strong model is worth it here.
 
+The first ingest after a backfill is the big one: a month of sessions is ~130 digests, which the skill splits into clusters by working directory and hands to subagents (parallel across clusters, sequential within the largest), committing after every batch. Open a fresh session inside the vault for it; you can stop at any point and resume later with the same command. Day to day it is a few digests and one call.
+
 Open the vault in Obsidian or any editor and read what it wrote. Correct anything wrong directly in the page; the next ingest treats your edit as the highest-priority source.
 
 ## 6. Optional switches
@@ -92,6 +97,19 @@ Open the vault in Obsidian or any editor and read what it wrote. Correct anythin
 - `inject_brief: true` in `config.json` *(later)* — the session-start hook adds the routed vault's `brief.md` to every session's context. Per machine; nothing in your Claude config changes.
 - `distill_model` — the model the distill runner passes to `claude -p`. Small is fine; distill is mechanical.
 - `/brain:lint` *(later)* — health report: unresolved conflicts, stale pages, orphans, digests never ingested, claims that contradict Claude's built-in memory.
+
+## Where to run what
+
+Every command looks at the current working directory and acts on the vault it routes to; `--vault <name>` overrides that.
+
+| Command | Run it from | Acts on |
+| --- | --- | --- |
+| `/brain:init <path>` | anywhere | creates and registers `<path>` |
+| `/brain:distill` | anywhere | every transcript under the configured roots, each routed to its own vault |
+| hooks | automatic, every session | the vault the session's directory routes to |
+| `/brain:ingest`, `/brain:query`, `/brain:lint` | anywhere, preferably inside the vault | the vault the directory routes to, or `--vault` |
+
+Two reasons to run ingest and query from inside the vault: the session-start hook injects the schema there, and sessions held inside a vault are never distilled — so the conversation in which you tidy the wiki does not itself become a source.
 
 ## Working inside the vault
 

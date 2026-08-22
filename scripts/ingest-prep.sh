@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Gather everything an ingest run needs and print it as markdown.
 #
-#   ingest-prep.sh [--vault <name>] [--batch N] [--cwd <dir>]
+#   ingest-prep.sh [--vault <name>] [--batch N] [--cwd <dir>] [--by-cwd]
+#
+# --by-cwd lists ALL pending sources grouped by the working directory they came
+# from (first path component under the home directory), for splitting a large
+# backlog into non-overlapping clusters.
 #
 # Sections: the vault and its page types, human edits since the last ingest
 # (git diff against the brain/last-ingest tag, working tree included, wiki
@@ -11,12 +15,13 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 config_exists || { echo "no config at $BRAIN_CONFIG — run /brain:init first" >&2; exit 1; }
 
-vault="" batch=15 cwd="$PWD"
+vault="" batch=15 cwd="$PWD" by_cwd=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --vault) vault="$2"; shift ;;
     --batch) batch="$2"; shift ;;
     --cwd) cwd="$2"; shift ;;
+    --by-cwd) by_cwd=1 ;;
   esac
   shift
 done
@@ -60,6 +65,18 @@ printf '\n'
 
 pending=$(grep -l '^ingested: false' sources/*/*.md 2>/dev/null | sort || true)
 total=$(printf '%s' "$pending" | grep -c . || true)
+if [ $by_cwd = 1 ]; then
+  printf '## Pending sources by working directory (%s waiting)\n\n' "$total"
+  printf '%s\n' "$pending" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    c=$(grep -m1 '^cwd:' "$f" | cut -d' ' -f2- || true)
+    g=$(printf '%s' "$c" | sed -E 's|^~/?||; s|^([^/]+/[^/]+).*|\1|'); [ -n "$g" ] || g=home
+    printf '%s\t%s\n' "$g" "$f"
+  done | sort | awk -F'\t' '$1 != g { if (g != "") printf "\n"; g = $1; printf "### %s\n", g } { printf "- %s\n", $2 }'
+  printf '\n'
+  exit 0
+fi
+
 printf '## Pending sources (%s waiting, this batch: up to %s, oldest first)\n\n' "$total" "$batch"
 if [ "$total" -eq 0 ]; then printf '(none)\n'; else
   printf '%s\n' "$pending" | head -n "$batch" | while IFS= read -r f; do
