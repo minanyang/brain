@@ -1,7 +1,7 @@
 ---
 name: lint
 description: Use when the user asks whether the vault or wiki is healthy, wants a health report, or asks about stale conflicts, orphan pages, unlinked names, or digests that were never ingested; also on a weekly cadence.
-argument-hint: [--vault <name>] [--fix]
+argument-hint: "[--vault <name>] [--fix]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/lint.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(git show *), Read, Edit, Glob, Grep
 ---
 

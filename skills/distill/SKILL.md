@@ -1,7 +1,7 @@
 ---
 name: distill
 description: Use when the user asks to backfill past sessions into the vault, or to distill one transcript by hand. Hooks distill each session automatically, so this is for backfills and one-offs.
-argument-hint: [--all] [--days N] [--jobs J] [<transcript.jsonl>]
+argument-hint: "[--all] [--days N] [--jobs J] [<transcript.jsonl>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/distill.sh *)
 disable-model-invocation: true
 ---

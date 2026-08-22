@@ -1,7 +1,7 @@
 ---
 name: query
 description: Use when the user asks what the vault knows, why something was decided, when something happened, or any question their brain should answer from its own pages.
-argument-hint: <question> [--vault <name>]
+argument-hint: "<question> [--vault <name>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Glob, Grep
 ---
 

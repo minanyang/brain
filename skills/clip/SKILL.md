@@ -1,7 +1,7 @@
 ---
 name: clip
 description: Use when the user shares a link, article, or document and wants it kept — "clip this", "save this article", "bookmark this for my brain". Stores it as a ref for the next ingest.
-argument-hint: <url or "pasted"> [why it matters] [--vault <name>]
+argument-hint: "<url or \"pasted\"> [why it matters] [--vault <name>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ref.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(grep *), Write, WebFetch
 ---
 

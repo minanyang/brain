@@ -1,7 +1,7 @@
 ---
 name: ingest
 description: Use when the user asks to ingest, to integrate pending digests or refs, or to update the wiki — and when the session-start reminder says sources are pending.
-argument-hint: [--vault <name>] [--batch N]
+argument-hint: "[--vault <name>] [--batch N]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
 ---
 

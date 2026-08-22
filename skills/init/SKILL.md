@@ -1,7 +1,7 @@
 ---
 name: init
 description: Use when the user asks to create, set up, add, or register a Brain vault, or mentions /brain:init or starting a brain. Creates the vault and registers it with its routing globs.
-argument-hint: <path>
+argument-hint: "<path>"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/init-vault.sh *), Read
 ---
 
