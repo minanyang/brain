@@ -10,15 +10,20 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 path="" name="" includes=()
+usage() { echo "usage: init-vault.sh <path> [--name <name>] [--include <glob> ...]" >&2; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --name) name="$2"; shift ;;
     --include) shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do includes+=("$1"); shift; done; continue ;;
+    -h|--help) usage; exit 0 ;;
+    # An unrecognized flag must never be taken as the vault path: doing so once
+    # created a vault at /tmp/--help and front-inserted a catch-all include.
+    -*) echo "unknown option: $1" >&2; usage; exit 2 ;;
     *) path="$1" ;;
   esac
   shift
 done
-[ -n "$path" ] || { echo "usage: init-vault.sh <path> [--name n] [--include glob ...]" >&2; exit 2; }
+[ -n "$path" ] || { usage; exit 2; }
 path=$(expand_home "$path")
 case "$path" in /*) ;; *) path="$PWD/$path" ;; esac
 [ -n "$name" ] || name=$(basename "$path")

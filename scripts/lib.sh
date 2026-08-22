@@ -23,9 +23,13 @@ transcript_roots() {
 }
 
 # glob_match <glob> <path>: bash pattern match where ** means any depth.
+# macOS reports some paths as /tmp/... and others as /private/tmp/...; glob matching
+# is textual, so normalize both sides or a session silently matches no vault.
+canon() { case "$1" in /tmp/*|/tmp) printf '/private%s' "$1" ;; /var/*|/var) printf '/private%s' "$1" ;; *) printf '%s' "$1" ;; esac; }
+
 glob_match() {
   local g p
-  g=$(expand_home "$1"); p="$2"
+  g=$(canon "$(expand_home "$1")"); p=$(canon "$2")
   # "~/Repos/acme/**" matches the directory itself as well as anything below it.
   case "$g" in */'**') [ "$p" = "${g%/**}" ] && return 0 ;; esac
   g="${g//\*\*/__DS__}"; g="${g//\*/[^/]*}"; g="${g//__DS__/*}"
