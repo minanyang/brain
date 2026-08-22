@@ -3,13 +3,14 @@
   "owner": {
     "name": "Mian Yang"
   },
-  "description": "Brain: a pattern for distilling agent sessions and work logs into a maintained wiki.",
+  "description": "Brain: a pattern for distilling Claude Code sessions, and anything you hand the agent, into a private wiki it maintains for you.",
   "plugins": [
     {
       "name": "brain",
       "source": "./",
-      "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work.",
-      "version": "0.1.0"
+      "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work. A session-end hook digests each transcript; /brain:ingest folds them into Markdown pages in a local git repo you own, where your own edits outrank the agent's.",
+      "version": "0.1.0",
+      "category": "productivity"
     }
   ]
 }
