@@ -35,7 +35,7 @@ done
 model=$(config_get '.distill_model' haiku)
 min_chars=400
 max_chars="${BRAIN_MAX_CHARS:-250000}"   # per model call; roughly 60–80k tokens
-written=0 skipped=0 blocked=0
+written=0 skipped=0 blocked=0 unrouted=0
 work=$(mktemp -d "${TMPDIR:-/tmp}/brain-distill.XXXXXX")
 trap 'rm -r "$work"' EXIT
 
@@ -117,7 +117,7 @@ process() {
   end=$(jq -r '.end' <<<"$meta")
 
   local vault vpath
-  vault=$(route "$cwd") || { say "no vault for $cwd ($session)"; skipped=$((skipped+1)); return; }
+  vault=$(route "$cwd") || { say "no vault for $cwd ($session)"; skipped=$((skipped+1)); unrouted=$((unrouted+1)); return; }
   vpath=$(vault_path "$vault")
   [ -d "$vpath" ] || { log "vault $vault missing at $vpath"; skipped=$((skipped+1)); return; }
 
@@ -247,3 +247,10 @@ for v in $written_in; do
 done
 
 log "done: $written written, $skipped skipped, $blocked blocked by secret gate"
+# A cwd that matches no vault is normal for a session held inside a vault, but if
+# nothing at all routed, the include globs are the likely cause and the message
+# above looks identical either way.
+if [ "$written" = 0 ] && [ "$unrouted" -gt 0 ]; then
+  log "none of the $unrouted transcript(s) matched a vault — check the include globs:"
+  jq -r '.vaults[] | "  \(.name): \(.include // [] | join(" "))"' "$BRAIN_CONFIG" >&2
+fi
