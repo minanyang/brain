@@ -142,3 +142,4 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 5. Digests with `ingested: false` older than 2 days.
 6. `brief.md` claims that contradict `~/.claude/projects/*/memory/*.md`.
 7. Any `(→ human, …)` claim present before an ingest and absent after it.
+8. `index.md`, `brief.md` or `log.md` not valid UTF-8 — a generated file cut mid-character makes grep treat it as binary and skip it silently.

@@ -8,7 +8,8 @@
     {
       "name": "brain",
       "source": "./",
-      "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work."
+      "description": "Distill every Claude Code session into a private wiki the agent maintains about you and your work.",
+      "version": "0.1.0"
     }
   ]
 }

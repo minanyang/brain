@@ -1,8 +1,8 @@
 ---
 name: ingest
-description: Integrate pending session digests and refs into the vault's wiki pages. Use when the user asks to ingest, update the wiki, or process pending digests; the SessionStart reminder names how many are waiting.
+description: Use when the user asks to ingest, to integrate pending digests or refs, or to update the wiki — and when the session-start reminder says sources are pending.
 argument-hint: [--vault <name>] [--batch N]
-allowed-tools: Bash Read Write Edit Glob Grep
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *) Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *) Read Write Edit Glob Grep Agent
 ---
 
 Integrate pending sources into the wiki, one batch at a time, committing after each batch. The schema is injected at session start when you are inside a vault; if you are not, read `${CLAUDE_PLUGIN_ROOT}/docs/schema.md` first.
@@ -28,6 +28,13 @@ Read each pending source in full. For each fact worth keeping:
 - Rewrite the page, do not append: lead with a two-sentence summary, then headed sections. Cite every non-obvious claim inline `(→ sources/sessions/<file>.md)`. Link related pages with `[[dir/page]]`. Absolute dates only. Update `updated:` and `sources:` in the frontmatter.
 - A fact that contradicts an existing claim is **not** applied. Record both under `## Conflicts` as `- [open] <today>: "<existing>" (→ its source) vs "<new>" (→ new source)` and leave the body as it was. Never pick a winner.
 - Pages with `locked: true`: only `## Conflicts` may change.
+
+  | The excuse you will reach for | Why it is wrong |
+  | --- | --- |
+  | "The newer source is obviously right" | Recency is not authority. Both go under `## Conflicts`. |
+  | "This is a clarification, not a contradiction" | If the existing claim would have to change, it is a contradiction. |
+  | "Nobody will care about this small difference" | The human decides that, not you. A conflict costs one line; a silent overwrite costs the claim. |
+
 - Promote to `decisions/` only what has consequences beyond one session; small choices stay as a line on the project page. Set `brief: true` on the handful of pages a new session should always see (the user's working style, the main projects); keep that set small.
 - Do not copy tool output, code, or credentials from a digest into a page. State the fact.
 

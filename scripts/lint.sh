@@ -9,6 +9,7 @@
 #   3. pages with no inbound [[links]] (index.md and brief.md do not count)
 #   5. sources still ingested: false after N days
 #   7. (→ human, …) claims present before the last ingest and absent after it
+#   8. generated files (index.md, brief.md, log.md) that are not valid UTF-8
 # Rules 4 (names without a page) and 6 (brief vs built-in memory) need judgment; the
 # report ends with the inputs for them.
 set -euo pipefail
@@ -92,7 +93,18 @@ else
 fi
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
-printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
+# 8
+printf '## 8. Generated files unreadable\n'
+n=0
+for f in index.md brief.md log.md; do
+  [ -f "$f" ] || continue
+  if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+    printf -- '- %s — not valid UTF-8; grep treats it as binary and skips it silently\n' "$f"; n=$((n+1))
+  fi
+done
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+
+printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
 
 printf '## Inputs for rule 4 (names on ≥ 3 pages with no page of their own)\nPages (%s): ' "$(printf '%s\n' "$pages" | grep -c .)"
 printf '%s\n' "$pages" | sed 's|\.md$||' | tr '\n' ' '; printf '\n\n'
