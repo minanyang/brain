@@ -62,7 +62,8 @@ Details: [docs/setup.md](docs/setup.md) for the step-by-step · [docs/architectu
 | **ingest** | deliberate — `/brain:ingest`; the `SessionStart` hook reminds you when digests or unresolved conflicts are pending | Reads new digests / log entries / human edits, updates entity and topic pages, `index.md`, `log.md`. Records contradictions instead of overwriting, then asks you to decide them. |
 | **query** | `/brain:query` | Reads `index.md`, drills into pages, answers with citations back to digests and session ids. Answers worth keeping are filed as new pages. |
 | **lint** | `/brain:lint`, weekly-ish | Contradictions, stale claims, orphans, concepts without pages, drift between the wiki and the agent's built-in memory. |
-| **brief** | after every ingest | Recompiles `brief.md` — the ~30 lines worth loading into every session. |
+| **clip** | `/brain:clip <url>` | Keeps an article or document as a ref — one line from you on why it matters — for the next ingest. |
+| **brief** | after every ingest | Recompiles `brief.md` — the ~30 lines worth loading into every session; injected at session start when you turn `inject_brief` on. |
 
 ## Two repositories
 

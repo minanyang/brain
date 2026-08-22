@@ -36,7 +36,7 @@ Write the list of sources you integrated, one path per line, to a temp file.
 ## 4. Finish the batch
 
 ```
-"${CLAUDE_PLUGIN_ROOT}/scripts/ingest-finish.sh" --vault <path> --sources <temp file> --note "<one line: what this batch covered>"
+"${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh" --vault <path> --op ingest --sources <temp file> --note "<one line: what this batch covered>"
 ```
 
 It runs the secret gate, marks the sources ingested, regenerates `index.md` and `brief.md`, appends to `log.md`, commits, and moves the `brain/last-ingest` tag. If the gate blocks, fix the page it names and run it again. Do not write `index.md` or `brief.md` yourself.
@@ -51,7 +51,7 @@ When more than ~40 sources are pending, do not read them all into this context. 
 
 - Clusters that come from different working directories rarely touch the same pages; integrate them in parallel, one subagent per cluster. Give each subagent this skill's section 3 verbatim, its file list, the vault path, and an ownership rule: it may only create or edit pages for entities in its own cluster, must not edit `me/` pages, and writes every `[me]` fact and every fact that belongs to another cluster's page to `.state/notes-<cluster>.md` with citations.
 - The dominant cluster (usually one project with most of the sessions) is integrated serially in batches of ~25, one subagent per batch, each started fresh so it reads the pages as the previous batch left them. That cluster's subagents own `me/` pages.
-- Subagents never run `ingest-finish.sh`, never commit, and never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md` or the sources.
+- Subagents never run `finish.sh`, never commit, and never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md` or the sources.
 - After each subagent returns, merge its `.state/notes-*.md` into the pages they name, then run step 4 for that subagent's sources. Conflicts are asked about once at the very end.
 
 ## 7. Ask about conflicts

@@ -81,9 +81,9 @@ Routing controls *where* a session is filed, not *what was said in it*: a work c
 | Component | Lives in | Installed to |
 | --- | --- | --- |
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | this repo | the repo is its own marketplace: `/plugin marketplace add minanyang/brain`, then `/plugin install brain@brain` |
-| `/brain` skills (`init`, `ingest`, `query`, `lint`; `distill` for manual runs), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin; or into any other agent with `npx skills add minanyang/brain` |
+| `/brain:*` skills (`init`, `distill`, `ingest`, `query`, `lint`, `clip`), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin; or into any other agent with `npx skills add minanyang/brain` |
 | Hooks (`SessionEnd` → distill, `SessionStart` → catch-up distill + pending-digest reminder) | this repo (`hooks/hooks.json`) | registered by the plugin |
-| Deterministic scripts (transcript extractor, distill runner, secret gate, state, lock, `brain/last-ingest` tag) | this repo (`scripts/`) | called by skills and hooks via `${CLAUDE_PLUGIN_ROOT}` |
+| Deterministic scripts: transcript extractor, distill runner, secret gate, vault init, status, routing (`resolve-vault.sh`), ingest prep, `finish.sh` (gate → mark sources → regenerate `index.md` and `brief.md` → log → commit → tag, shared by every op), `index.sh`, `lint.sh`, `ref.sh` | this repo (`scripts/`) | called by skills and hooks via `${CLAUDE_PLUGIN_ROOT}` |
 | Default schema, page and digest templates | this repo (`docs/schema.md`, `templates/`) | read by the skills from the plugin root; the schema is injected into in-vault sessions by the `SessionStart` hook |
 | Per-machine config (vaults and their routing globs, transcript roots, model names, brief switch) | nowhere in git | `~/.brain/config.json` |
 | Vault `CLAUDE.md`, sources, wiki, `.state/` | the vault | — |
@@ -127,10 +127,10 @@ Then, in batches of pending sources (oldest first, ~15 at a time, so that progre
 1. Extract facts and classify them by page type: the user, a person or team, a project, a decision, a topic, or any type the vault declares.
 2. For each fact, find the page it belongs to (via `index.md` and the vault's glossary); create the page if missing.
 3. Rewrite the page. If the fact contradicts an existing claim, do **not** overwrite and do **not** pick a winner — record both under `## Conflicts` as an `[open]` entry.
-4. Finish the batch deterministically (`scripts/ingest-finish.sh`): secret gate on every changed page, mark the sources `ingested: true`, regenerate `index.md` and `brief.md` from the pages, append to `log.md`, commit, move `brain/last-ingest`.
+4. Finish the batch deterministically (`scripts/finish.sh --op ingest`): secret gate on every changed page, mark the sources `ingested: true`, regenerate `index.md` and `brief.md` from the pages, append to `log.md`, commit, move `brain/last-ingest`.
 5. When the run stops, list every `[open]` conflict it created and ask the human to decide each one now or leave it. A decision is written immediately as a `(→ human, date)` claim on the page; the entry becomes `[resolved <date>]`.
 
-Steps 1–3 are the skill's judgment; step 0 and step 4 are scripts (`ingest-prep.sh`, `ingest-finish.sh`). The split is the same as distill's: the agent decides what a fact means, and never touches the bookkeeping.
+Steps 1–3 are the skill's judgment; step 0 and step 4 are scripts (`ingest-prep.sh`, `finish.sh`). The split is the same as distill's: the agent decides what a fact means, and never touches the bookkeeping.
 
 Pages with `locked: true` are never rewritten; ingest may only append under their `## Conflicts`.
 
@@ -138,11 +138,15 @@ A single session digest typically touches 3–10 pages. This step needs a strong
 
 ### query
 
-Read `index.md` → pick pages → read them → answer with citations (`[[page]]`, digest path, session id). If the answer is a synthesis worth keeping — a comparison, a timeline, a post-mortem — file it as a page and log it.
+Read `index.md` → pick pages → read them → answer with citations (`[[page]]`, digest path, session id). The vault answers from its pages, falls back to grepping `sources/` only when the pages are silent and says so, and names what it does not know rather than filling gaps from general knowledge. If the answer is a synthesis worth keeping — a comparison, a timeline, a post-mortem — it is filed as a page and committed through `finish.sh --op query`, which also logs it; a plain factual answer leaves no trace.
+
+### clip
+
+`/brain:clip <url or pasted text>` fetches the content, asks the one question that matters — *why should the vault keep this?* — and writes `sources/refs/<date>-<slug>.md` through `scripts/ref.sh` (slug, frontmatter from `templates/ref.md`, secret gate). Nothing is summarized or filed into the wiki at this point; the ref is `ingested: false` and the next ingest integrates it like a digest, citing it as `(→ sources/refs/…)`.
 
 ### lint
 
-Weekly or on demand. Produces a report, not edits, unless told otherwise:
+Weekly or on demand. Produces a report, not edits, unless told otherwise. `scripts/lint.sh` computes the mechanical rules (1, 2, 3, 5, 7 below) in a couple of seconds; the skill adds the two that need judgment (4 and 6) and logs the run:
 
 - contradictions recorded under `## Conflicts` that are still unresolved
 - claims older than N days on pages marked `volatile: true`
@@ -176,7 +180,7 @@ Claude Code's auto-memory (`~/.claude/projects/<project>/memory/`) is a per-proj
 
 - Memory stays authoritative for "things the agent must know in this repo right now".
 - The vault is authoritative for history, synthesis, and anything cross-project.
-- `brief.md` is the bridge: injected at session start by the plugin's hook so every session begins with the compiled context. Whether to inject by default is still open: it costs tokens on every session, and a wrong synthesized fact would reach every conversation until lint catches it.
+- `brief.md` is the bridge: when `inject_brief` is `true` in `~/.brain/config.json`, the plugin's `SessionStart` hook adds the routed vault's brief to every session (it passes the secret gate first). The default is `false`: injection costs tokens on every session, and a wrong synthesized fact would reach every conversation until lint catches it — so the switch is flipped once the owner has read a few weeks of the wiki and trusts it.
 - Lint checks the two for contradictions; humans resolve them.
 
 ## Multi-device

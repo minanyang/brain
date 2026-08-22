@@ -84,3 +84,14 @@ lock_wait() {
     sleep 1
   done
 }
+
+# resolve_vault [name] [cwd]: print the vault NAME to act on — the given name, else the vault
+# that contains cwd, else the vault cwd routes to. Exit 1 if none.
+resolve_vault() {
+  local name="${1:-}" cwd="${2:-$PWD}" n p
+  if [ -n "$name" ]; then jq -e --arg n "$name" '.vaults[] | select(.name == $n)' "$BRAIN_CONFIG" >/dev/null && { printf '%s' "$name"; return 0; }; return 1; fi
+  while IFS=$'\t' read -r n p; do
+    p=$(expand_home "$p"); case "$cwd" in "$p"|"$p"/*) printf '%s' "$n"; return 0 ;; esac
+  done < <(jq -r '.vaults[] | [.name, .path] | @tsv' "$BRAIN_CONFIG")
+  route "$cwd"
+}
