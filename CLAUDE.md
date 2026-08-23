@@ -30,7 +30,7 @@ scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transc
 .claude-plugin/  plugin.json and marketplace.json
 ```
 
-After touching either manifest, run `./scripts/check.sh` — `claude plugin validate . --strict` alone reads marketplace.json and misses whole classes of plugin.json warning, so check.sh validates both paths. To try the plugin from the working tree without installing it: `claude --plugin-dir ~/Repos/brain`. Scripts must stay bash 3.2-compatible (macOS default) and depend only on `jq` and `git`.
+After touching either manifest, run `./scripts/check.sh` — `claude plugin validate . --strict` alone reads marketplace.json and misses whole classes of plugin.json warning, so check.sh validates both paths. To try the plugin from the working tree without installing it: `claude --plugin-dir ~/Repos/brain`. A behaviour change needs a version bump in both manifests to reach anyone: `claude plugin update` compares versions, so pushing new code under the old number reports "already at the latest version" and installs nothing. Scripts must stay bash 3.2-compatible (macOS default) and depend only on `jq` and `git`.
 
 ## Where the design lives
 
