@@ -224,7 +224,23 @@ if [ $all = 1 ]; then
       find "$root" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0
     fi
   done < <(transcript_roots) | sort -z | while IFS= read -r -d '' f; do printf '%s\n' "$f"; done > "$work/list"
-  while IFS= read -r f; do files+=("$f"); done < "$work/list"
+
+  # Drop transcripts that have not grown since they were distilled. process() decides
+  # this by comparing the file's byte length against the offset in distilled.json, but
+  # only after a jq pass over the whole file to read its metadata — so on a scan almost
+  # every one of those passes learns nothing. Comparing sizes up front costs one `wc`
+  # for the whole list and one jq per vault: 800 transcripts went from 37s to under 2s.
+  while IFS=$'\t' read -r n vp; do
+    jq -r '.[] | select(.transcript and .offset) | "\(.offset) \(.transcript)"' \
+      "$(expand_home "$vp")/.state/distilled.json" 2>/dev/null || true
+  done < <(jq -r '.vaults[] | [.name, .path] | @tsv' "$BRAIN_CONFIG") | sort -u > "$work/done"
+  tr '\n' '\0' < "$work/list" | xargs -0 wc -c 2>/dev/null \
+    | sed -e 's/^ *//' -e '/ total$/d' | sort -u > "$work/size"
+  comm -23 "$work/size" "$work/done" | sed 's/^[0-9]* //' > "$work/todo"
+
+  total=$(grep -c . "$work/list" || true)
+  while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done < "$work/todo"
+  [ ${#files[@]} -gt 0 ] || { log "nothing new in $total transcript(s)"; exit 0; }
 fi
 
 [ ${#files[@]} -gt 0 ] || { say "nothing to distill"; exit 0; }
