@@ -75,7 +75,7 @@ printf '## 5. Sources not ingested after %s days\n' "$digest_days"
 n=0
 for f in $(grep -l '^ingested: false' sources/*/*.md 2>/dev/null || true); do
   # a continued digest is pending since its last append, not since the file's date
-  d=$(grep -o '^## Continued ([0-9-]\{10\}' "$f" 2>/dev/null | tail -1 | cut -c15-24)
+  d=$(grep -o '^## Continued ([0-9-]\{10\}' "$f" 2>/dev/null | tail -1 | cut -c15-24 || true)
   [ -n "$d" ] || d=$(basename "$f" | cut -c1-10); a=$(age_days "$d")
   if [ "$a" -ge "$digest_days" ]; then printf -- '- %s (%s days)\n' "$f" "$a"; n=$((n+1)); fi
 done

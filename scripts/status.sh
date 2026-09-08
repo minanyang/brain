@@ -31,7 +31,7 @@ if [ -n "$vault" ]; then
     # A digest continued after it was ingested is pending since its last append, not since
     # the file's date — a workspace session resumed for a month read "since <a month ago>".
     since=$(printf '%s\n' "$pending_files" | while IFS= read -r f; do
-      d=$(grep -o '^## Continued ([0-9-]\{10\}' "$f" 2>/dev/null | tail -1 | cut -c15-24)
+      d=$(grep -o '^## Continued ([0-9-]\{10\}' "$f" 2>/dev/null | tail -1 | cut -c15-24 || true)
       [ -n "$d" ] && printf '%s\n' "$d" || basename "$f" | cut -c1-10
     done | sort | head -1)
     line="[brain] $pending source(s) pending in vault '$vault' since $since"
