@@ -1,6 +1,6 @@
 ---
 name: query
-description: "Answer a question from a Brain vault's wiki, with citations back to the page, the session digest and the session id, and file the answer as a page when it is a synthesis worth keeping. Use whenever the user asks what their brain, vault or notes know, why something was decided, when something happened, or asks you to look something up in their own knowledge base rather than in code or on the web."
+description: "Answer a question from a Brain vault's wiki, with citations back to the page, the session digest and the session id, and file the answer as a page when it is a synthesis worth keeping. Use whenever the user asks what their brain, vault or notes know, why something was decided, when something happened, or asks you to look something up in their own knowledge base rather than in code or on the web — and when a task names a system, person or decision the session-start page list covers but you are about to answer from general knowledge."
 argument-hint: "<question> [--vault <name>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Glob, Grep
 ---

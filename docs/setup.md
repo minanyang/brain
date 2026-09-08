@@ -29,7 +29,7 @@ It asks one question — *which directories should feed this vault?* — with `~
    ~/vaults/personal/
    ├── CLAUDE.md        local overrides and glossary — starts almost empty
    ├── .gitignore       .state/
-   ├── sources/sessions/  sources/refs/
+   ├── sources/sessions/  sources/refs/  sources/memory/
    ├── me/  people/  projects/  decisions/  topics/
    ├── index.md         empty catalog
    ├── log.md           one entry: ## [date] init | vault created
@@ -94,8 +94,9 @@ Open the vault in Obsidian or any editor and read what it wrote. Correct anythin
 
 ## 6. Optional switches
 
-- `inject_brief: true` in `config.json` — the session-start hook adds the routed vault's `brief.md` to every session's context, so the agent starts each conversation already knowing your working style and main projects. Off by default; flip it once you trust the wiki. Per machine; nothing in your Claude config changes.
+- `inject_brief: true` in `config.json` — the session-start hook adds the routed vault's `brief.md` to every session's context, so the agent starts each conversation already knowing your working style and main projects, plus a short list of the wiki pages that recent sessions in the current directory fed, so it knows which pages to read before answering. Off by default; flip it once you trust the wiki. Per machine; nothing in your Claude config changes.
 - `distill_model` — the model the distill runner passes to `claude -p`. Small is fine; distill is mechanical.
+- Memory sync needs no switch: after every distill, any memory file Claude wrote under `~/.claude/projects/*/memory/` that changed since the last sync is copied into the routed vault's `sources/memory/` and waits for the next ingest like a digest. Nothing is written back to the memory directory.
 - `/brain:lint` — health report: unresolved conflicts, stale pages, orphans, names without a page, digests never ingested, claims that contradict Claude's built-in memory, human claims lost by an ingest. Weekly is plenty.
 - `/brain:clip <url>` — keep an article or document: it is fetched, you say in one line why it matters, and it lands in `sources/refs/` for the next ingest. Paste text instead of a URL when the page cannot be fetched.
 

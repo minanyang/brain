@@ -67,7 +67,7 @@ Not supported yet: the skills follow the Agent Skills standard but nothing else 
 | Alternative | What it lacks |
 | --- | --- |
 | RAG over transcripts | Rediscovers everything on every query. No synthesis, no contradiction tracking, and transcripts are 80% tool output. |
-| Built-in agent memory | Per-project, atomic, written in the moment. No cross-project synthesis, no retrospection, no history of why. A good **hot cache** — Brain is the cold store behind it. |
+| Built-in agent memory | Per-project, atomic, written in the moment. No cross-project synthesis, no retrospection, no history of why. A good **hot cache** — Brain is the cold store behind it, and ingests it as a source. |
 | LLM Wiki as-is | Assumes clean, hand-curated sources. Raw agent transcripts need a distillation layer before they are fit to integrate. |
 | Writing notes yourself | You will stop within two weeks. The bookkeeping is the part humans abandon. |
 
@@ -102,4 +102,4 @@ Details: [docs/setup.md](docs/setup.md) for the step-by-step · [docs/architectu
 | **[query](skills/query/SKILL.md)** | `/brain:query` | Reads `index.md`, drills into pages, answers with citations back to digests and session ids. Answers worth keeping are filed as new pages. |
 | **[lint](skills/lint/SKILL.md)** | `/brain:lint`, weekly-ish | Contradictions, stale claims, orphans, concepts without pages, drift between the wiki and the agent's built-in memory. |
 | **[clip](skills/clip/SKILL.md)** | `/brain:clip <url>` | Keeps an article or document as a ref — one line from you on why it matters — for the next ingest. |
-| **brief** | after every ingest | Recompiles `brief.md` — the ~30 lines worth loading into every session; injected at session start when you turn `inject_brief` on. |
+| **brief** | after every ingest | Recompiles `brief.md` — the ~30 lines worth loading into every session; injected at session start when you turn `inject_brief` on, together with a list of the pages recent sessions in the current directory fed, so the agent knows what to read. |

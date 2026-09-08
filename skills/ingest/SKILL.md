@@ -38,6 +38,7 @@ Read each pending source in full. For each fact worth keeping:
 - Promote to `decisions/` only what has consequences beyond one session; small choices stay as a line on the project page. Set `brief: true` on the handful of pages a new session should always see (the user's working style, the main projects); keep that set small.
 - Keep the page bounded. A rewrite folds superseded detail into the current-state section and leaves one line per dated event — the old wording is in git, not on the page. When a section stops being about one thing, split it into its own `topics/` page and link it.
 - A ref is not a digest. Its `why:` line is the human's routing opinion and tells you which page the body belongs to; the body is an external source, cited `(→ sources/refs/<file>.md)` and never written up as the user's own view or decision.
+- A memory snapshot (`sources/memory/`) is the agent's own note from a session, usually written with the code in front of it and often verified there; its `project:` says which repository it is about. Cite it `(→ sources/memory/<file>.md)`. A later snapshot of the same `memory:` path revises the earlier one and is not a conflict; a snapshot that contradicts a digest or a page is, and goes under `## Conflicts` like any other source — its verification note is what step 7 uses to settle it.
 - Do not copy tool output, code, or credentials from a digest into a page. State the fact.
 
 Write the list of sources you integrated, one path per line, to a temp file.

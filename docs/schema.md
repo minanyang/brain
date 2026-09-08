@@ -9,7 +9,8 @@ vault/
 ├── CLAUDE.md            local overrides and glossary only; the schema itself is injected by the plugin
 ├── sources/             immutable, machine- or hand-written; never browsed, only ingested
 │   ├── sessions/        one digest per session
-│   └── refs/            articles, links, documents handed over on purpose
+│   ├── refs/            articles, links, documents handed over on purpose
+│   └── memory/          snapshots of the agent's built-in memory files, one per change
 ├── me/ people/ projects/ decisions/ topics/   default page types; vaults may add more
 ├── index.md  log.md  brief.md
 └── .state/              per-machine, gitignored
@@ -104,6 +105,22 @@ ingested: false
 ```
 
 `why` is written by the human and is the only part ingest treats as an opinion; the body is treated as an external source and cited as such.
+
+## Memory snapshot template
+
+```markdown
+---
+memory: ~/.claude/projects/-Users-me-Repos-acme-billing/memory/reconciler-retry-policy.md
+project: ~/Repos/acme-billing
+added: 2026-08-21
+title: "reconciler-retry-policy"
+ingested: false
+---
+
+<the memory file, verbatim, frontmatter included>
+```
+
+Written by `scripts/memory-sync.sh` whenever the memory file's content changes; `memory` is the file it came from and `project` the working directory it belongs to. The body is the agent's own note, written during a session with the code in front of it, and is cited `(→ sources/memory/<file>.md)`. A later snapshot of the same `memory` path is a revision of the earlier one, not a contradiction.
 
 ## index.md
 

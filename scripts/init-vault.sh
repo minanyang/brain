@@ -36,7 +36,7 @@ fi
 mkdir -p "$path"
 cd "$path"
 [ -d .git ] || git init -q
-for d in sources/sessions sources/refs me people projects decisions topics; do mkdir -p "$d"; [ -e "$d/.gitkeep" ] || : > "$d/.gitkeep"; done
+for d in sources/sessions sources/refs sources/memory me people projects decisions topics; do mkdir -p "$d"; [ -e "$d/.gitkeep" ] || : > "$d/.gitkeep"; done
 [ -e CLAUDE.md ] || cp "$BRAIN_ROOT/templates/vault/CLAUDE.md" CLAUDE.md
 [ -e .gitignore ] || cp "$BRAIN_ROOT/templates/vault/gitignore" .gitignore
 [ -e index.md ] || printf '# Index\n' > index.md

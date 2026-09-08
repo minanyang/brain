@@ -7,6 +7,8 @@
 # from (first path component under the home directory), for splitting a large
 # backlog into non-overlapping clusters.
 #
+# Runs memory-sync.sh first, so memory files changed since the last sync are pending
+# sources by the time they are counted.
 # Sections: the vault and its page types, human edits since the last ingest
 # (git diff against the brain/last-ingest tag, working tree included, wiki
 # directories only), the next N pending sources (ingested: false, oldest first)
@@ -36,6 +38,7 @@ fi
 vp=$(vault_path "$vault")
 [ -d "$vp" ] || { echo "vault $vault missing at $vp" >&2; exit 1; }
 cd "$vp"
+"$BRAIN_ROOT/scripts/memory-sync.sh" --quiet || true
 
 # Wiki directories: everything except sources/, the three special files, and dotfiles.
 wiki_dirs=$(find . -maxdepth 1 -mindepth 1 -type d ! -name sources ! -name '.*' | sed 's|^\./||' | sort | tr '\n' ' ')
@@ -53,7 +56,7 @@ printf '\n'
 printf '## Human edits since last ingest\n\n'
 if git rev-parse -q --verify brain/last-ingest >/dev/null 2>&1; then
   # Human edits are the uncommitted working tree plus commits since the tag that Brain
-  # did not make. Brain's own commits (query:, lint:, clip:, distill:) must never be
+  # did not make. Brain's own commits (query:, lint:, clip:, distill:, memory:) must never be
   # read back as human edits — that would launder an agent's own writing into a claim
   # that outranks every digest.
   paths=(. ':(exclude)sources' ':(exclude)log.md' ':(exclude)index.md' ':(exclude)brief.md' ':(exclude).state')
@@ -62,7 +65,7 @@ if git rev-parse -q --verify brain/last-ingest >/dev/null 2>&1; then
     [ -n "$c" ] || continue
     diff="$diff"$'\n'"$(git show --format= "$c" -- "${paths[@]}" 2>/dev/null || true)"
   done < <(git log --format='%H %s' brain/last-ingest..HEAD 2>/dev/null \
-             | grep -vE '^[0-9a-f]+ (ingest|query|lint|clip|distill): ' | cut -d' ' -f1)
+             | grep -vE '^[0-9a-f]+ (ingest|query|lint|clip|distill|memory): ' | cut -d' ' -f1)
   untracked=$(git ls-files --others --exclude-standard -- $wiki_dirs 2>/dev/null || true)
   if [ -z "$diff" ] && [ -z "$untracked" ]; then printf '(none)\n'; else
     printf 'These hunks were written by a human. They outrank every source below; keep every claim they add, cite it as (→ human, %s).\n\n```diff\n%s\n```\n' "$(date +%Y-%m-%d)" "$diff"
