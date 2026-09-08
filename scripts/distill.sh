@@ -63,7 +63,7 @@ Rules:
 - Past tense, concrete, terse. Only what the transcript supports; no speculation.
 - No tool output, no code blocks longer than 5 lines, no credentials or tokens, no verbatim pasted documents — state the fact, not the artifact.
 - Write in English. Keep file names, commands, and proper nouns as they appear.
-- In "Learned", tag every bullet: [me] for how the user works or prefers things, [person:<name>] for people or teams, [project:<name>] for the repository or product (use the repository name), [topic:<name>] for technical or domain concepts. Omit a section if it has nothing, except "What happened".
+- In "Learned", tag every bullet: [me] for how the user works or prefers things, [person:name] for people or teams, [project:name] for the repository or product (use the repository name), [topic:name] for technical or domain concepts. Write the actual name in the tag, with no angle brackets or placeholders; the names in the template are examples. Omit a section if it has nothing, except "What happened".
 - Dates absolute (YYYY-MM-DD), never relative.
 
 EOF
@@ -83,9 +83,9 @@ Fill in this template exactly:
 
 ## Learned
 - [me] …
-- [person:<name>] …
-- [project:<name>] …
-- [topic:<name>] …
+- [person:platform-team] …
+- [project:acme-billing] …
+- [topic:git-tags] …
 
 ## Open threads
 - Things left unfinished or explicitly deferred.
@@ -105,8 +105,11 @@ digest_trailer() { # repeated after the transcript so the instruction is the mos
 }
 
 summarize() { # <chunk-file> <section-header>
+  # Small models copy a placeholder's angle brackets into the tag ([topic:<acme-ledger>]; 24 of
+  # 227 digests on one vault); the sed makes the tag shape deterministic whatever the model did.
   { digest_prompt "$2"; cat "$1"; digest_trailer "$2"; } \
-    | BRAIN_INNER=1 claude -p --model "$model" --no-session-persistence --tools "" --setting-sources "" --output-format text 2>/dev/null
+    | BRAIN_INNER=1 claude -p --model "$model" --no-session-persistence --tools "" --setting-sources "" --output-format text 2>/dev/null \
+    | sed -E 's/\[(person|project|topic):<([^>]*)>\]/[\1:\2]/g'
 }
 
 well_formed() { # <text> <expected section header or "">
@@ -133,6 +136,16 @@ process() {
   offset=$(jq -r --arg s "$session" '.[$s].offset // 0' "$state")
   digest=$(jq -r --arg s "$session" '.[$s].digest // empty' "$state")
   [ "$end" -le "$offset" ] && return   # nothing new
+
+  # One run per session at a time. A SessionEnd distill and a catch-up scan picked the same
+  # transcript up seconds apart, both read "nothing distilled yet" above, and each wrote its
+  # own digest — the second under a suffixed name. The marker spans the model call, which is
+  # where the overlap happens; the vault lock below only covers the write. Stale after 30 min.
+  local inflight="$vpath/.state/inflight/$session"
+  mkdir -p "$vpath/.state/inflight"
+  [ -n "$(find "$inflight" -maxdepth 0 -mmin +30 2>/dev/null)" ] && rmdir "$inflight" 2>/dev/null
+  mkdir "$inflight" 2>/dev/null || { say_skip "in flight in another run: $session"; skipped=$((skipped+1)); return; }
+  trap 'rmdir "$inflight" 2>/dev/null' RETURN
 
   local text
   text=$("$BRAIN_ROOT/scripts/extract-transcript.sh" "$file" "$offset" | "$BRAIN_ROOT/scripts/secret-gate.sh" --redact)
@@ -189,7 +202,11 @@ process() {
   fi
 
   lock_wait "$vpath" || { log "vault $vault stayed locked for 2 minutes, giving up on $session"; skipped=$((skipped+1)); return; }
-  trap 'unlock "$vpath"' RETURN
+  trap 'unlock "$vpath"; rmdir "$inflight" 2>/dev/null' RETURN
+  # A run that held a stale marker could still have finished first; under the lock the state is final.
+  if [ "$(jq -r --arg s "$session" '.[$s].offset // 0' "$state")" -ge "$end" ]; then
+    say_skip "already distilled by another run: $session"; skipped=$((skipped+1)); return
+  fi
 
   if [ "$mode" = continued ]; then
     printf '\n%s\n' "$body" >> "$vpath/$digest"

@@ -50,7 +50,9 @@ if [ "$mode" = meta ]; then
             "/" + ((capture("<command-name>(?<c>[^<]*)</command-name>").c // "") | ltrimstr("/"))
             + " " + (capture("<command-args>(?<a>[^<]*)</command-args>").a // "")
           else gsub("<system-reminder>(?:.|\\n)*?</system-reminder>"; "") end
-        | gsub("\\s+"; " ") | gsub("^ | $"; "") | .[0:60]))
+        | gsub("\\s+"; " ") | gsub("^ | $"; "")
+        | gsub("^[\\[\\]#>*`_ -]+"; "")   # a pasted document opens with markdown, not a title
+        | .[0:60]))
     | .end = ($end | tonumber)
     | del(.first_prompt)'
   exit 0

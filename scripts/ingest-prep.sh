@@ -94,7 +94,13 @@ printf '## Pending sources (%s waiting, this batch: up to %s, oldest first)\n\n'
 if [ "$total" -eq 0 ]; then printf '(none)\n'; else
   printf '%s\n' "$pending" | head -n "$batch" | while IFS= read -r f; do
     t=$(grep -m1 '^title:' "$f" | cut -d' ' -f2- || true); d=$(grep -m1 '^date:\|^added:' "$f" | cut -d' ' -f2 || true)
-    printf -- '- %s — %s (%s, %s bytes)\n' "$f" "$t" "$d" "$(wc -c < "$f" | tr -d ' ')"
+    # A digest that was ingested and then continued is pending again as a whole file, but only
+    # the appended part is new; say where it starts so the earlier part is not read a second time.
+    hint=""
+    if old=$(git show "brain/last-ingest:$f" 2>/dev/null) && printf '%s\n' "$old" | grep -q '^ingested: true$'; then
+      hint=" — already ingested through line $(printf '%s\n' "$old" | wc -l | tr -d ' '); read from the next line"
+    fi
+    printf -- '- %s — %s (%s, %s bytes)%s\n' "$f" "$t" "$d" "$(wc -c < "$f" | tr -d ' ')" "$hint"
   done
 fi
 printf '\n'

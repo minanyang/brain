@@ -21,7 +21,7 @@ Every hunk under "Human edits" is a correction or addition by the human. When yo
 
 ## 3. Integrate the batch
 
-Read each pending source in full. For each fact worth keeping:
+Read each pending source in full — except one the report marks "already ingested through line N": read from the next line, since the earlier part is on the pages already and re-reading it re-files facts that are there. For each fact worth keeping:
 
 - Decide the page type — `me`, `person`, `project`, `decision`, `topic`, or a declared type. Never invent a type; an unclassifiable fact goes to `topics/`.
 - Find the page in the index (resolve names through the glossary; one entity, one page — do not create `projects/acme` next to `projects/Acme`). Create the page from `${CLAUDE_PLUGIN_ROOT}/templates/page.md` if it does not exist. File names: lowercase, hyphenated, no dates except in `decisions/`.
@@ -64,7 +64,7 @@ When more than ~40 sources are pending, do not read them all into this context. 
 - Size each subagent's slice so it never compacts — about 25 sources (prep's own `--batch` default of 15 is for ordinary runs; here you are handing file lists to subagents, not reading a batch yourself). A batch that hits compaction loses the pages it read first and writes worse than two smaller batches would. Ingest also rewards a stronger model than distill: splitting an overgrown page and noticing a file missing from its own list are things weaker models skip, so on a weaker model halve the batch and check the returned file list against the one you gave it.
 - **Load `references/subagent-brief.md`** for the prompt each cluster subagent gets. Do NOT load it for an ordinary batch.
 - Subagents never run `finish.sh`, never commit, and never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md` or the sources.
-- After each subagent returns, merge its `.state/notes-*.md` into the pages they name, then run step 4 for that subagent's sources. Conflicts are asked about once at the very end.
+- After each subagent returns, merge its `.state/notes-*.md` into the pages they name and delete the notes file — a stale one would be merged again next time — then run step 4 for that subagent's sources. Conflicts are asked about once at the very end.
 
 ## 7. Ask about conflicts
 

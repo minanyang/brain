@@ -28,7 +28,12 @@ if [ -n "$vault" ]; then
   pending_files=$(grep -l '^ingested: false' "$vp"/sources/*/*.md 2>/dev/null || true)
   pending=$(printf '%s' "$pending_files" | grep -c . || true)
   if [ "$pending" -gt 0 ]; then
-    since=$(printf '%s\n' "$pending_files" | xargs -n1 basename | sort | head -1 | cut -c1-10)
+    # A digest continued after it was ingested is pending since its last append, not since
+    # the file's date — a workspace session resumed for a month read "since <a month ago>".
+    since=$(printf '%s\n' "$pending_files" | while IFS= read -r f; do
+      d=$(grep -o '^## Continued ([0-9-]\{10\}' "$f" 2>/dev/null | tail -1 | cut -c15-24)
+      [ -n "$d" ] && printf '%s\n' "$d" || basename "$f" | cut -c1-10
+    done | sort | head -1)
     line="[brain] $pending source(s) pending in vault '$vault' since $since"
   fi
   wiki_dirs=$(find "$vp" -maxdepth 1 -mindepth 1 -type d ! -name sources ! -name '.*')

@@ -186,7 +186,7 @@ Rejected: `Stop` hook (fires every turn); a scheduler such as launchd or cron (a
 Two guards the hooks need:
 
 - **Recursion.** The distill runner calls `claude -p` for the summary, and that inner run could fire hooks too. The runner sets `BRAIN_INNER=1` (hook scripts exit immediately when it is set), runs with `--no-session-persistence` so no transcript is written, and loads no settings. Sessions whose `cwd` is the vault are also skipped — the `/brain:ingest` conversation is not itself a source.
-- **Concurrency.** Several sessions can end or start at once. Distill takes an atomic lock (`mkdir .state/lock`) and the catch-up pass skips if the lock is held.
+- **Concurrency.** Several sessions can end or start at once. Distill takes an atomic lock (`mkdir .state/lock`) around the write, and one catch-up scan runs at a time. The write lock is not enough on its own: a SessionEnd distill and a catch-up scan picked up the same transcript seconds apart, both read "nothing distilled yet" before their model calls, and the second wrote a duplicate digest under a suffixed name. So a session is also marked in flight (`mkdir .state/inflight/<session>`) across the model call, and the state is re-read under the write lock.
 
 ## Relationship to built-in agent memory
 
