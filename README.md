@@ -4,7 +4,7 @@ A pattern for letting an LLM agent build a persistent, compounding understanding
 
 It generalizes [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) in two ways: the subject is not an external topic but your own work and context, and the sources are not curated documents but the noisy streams an agent already produces.
 
-This repository holds the **pattern and the reference implementation**. Your actual knowledge lives in a separate, private repository — the *vault* — that this repository never sees. See [Two repositories](#two-repositories).
+This repository holds the **pattern and the reference implementation**. Your actual knowledge lives in a separate, private repository — the *vault* — that this repository never sees. See [Two repositories](docs/architecture.md#two-repositories).
 
 ## The problem
 
@@ -22,6 +22,45 @@ Treat your sessions, and anything you hand the agent on purpose, as **sources**,
 - The most load-bearing facts are compiled into a short **brief** that can be injected into every new session, so the agent starts each conversation already knowing the shape of your world. Everything else is queried on demand.
 
 The wiki is a compounding artifact. You never write it; you read it, correct it, and ask questions against it — and good answers are filed back in.
+
+## Installation
+
+Needs `git` and `jq`. Nothing is written into your own skills, rules, or global instruction file — the only state outside the plugin is `~/.brain/config.json` and the vault itself.
+
+### Claude Code
+
+```
+/plugin marketplace add minanyang/brain
+/plugin install brain@brain
+```
+
+To try it for one session without installing anything, clone the repo and pass it in: `claude --plugin-dir <path-to-clone>`.
+
+Restart Claude Code so the skills and hooks load, then run these three once:
+
+```
+/brain:init ~/Repos/my-vault     # create the vault, and route your sessions into it
+/brain:distill --all --days 30   # backfill: one digest per session you already had
+/brain:ingest                    # fold those digests into wiki pages
+```
+
+**`init`** creates the vault as its own git repository — sources, the five default page directories, a `CLAUDE.md` that imports the schema — and registers it in `~/.brain/config.json` with the globs that decide which sessions feed it. The default takes everything under your home directory; pass `--include` to narrow it, and a vault added later wins over one added earlier. Whether the vault ever gets a remote is your call; nothing here needs one.
+
+**`distill --all`** is the only slow step: one model call per past session, so budget a few minutes and use `--jobs 4` to parallelize. `--days 30` is usually the whole history, because Claude Code deletes transcripts after 30 days by default. Re-running is a no-op — each transcript is tracked by byte offset, so a session you resume later is appended to rather than duplicated.
+
+**`ingest`** is the one that asks you things: it records contradictions between digests instead of overwriting, then hands them to you to decide. On a large backfill it works in batches.
+
+After that nothing needs starting. Every session you finish is distilled by a hook, and the line printed at the start of your next session tells you when enough has piled up to ingest again:
+
+```
+[brain] 23 source(s) pending in vault 'my-vault' since 2026-08-20, 1 open conflict(s) — run /brain:ingest
+```
+
+What each step prints, what to check, and the optional switches: [docs/setup.md](docs/setup.md).
+
+### Other agents
+
+Not supported yet: the skills follow the Agent Skills standard but nothing else here does. What a port needs, and what `npx skills add` does and does not carry, is in [Porting to another host](docs/architecture.md#porting-to-another-host).
 
 ## Why not …
 
@@ -64,28 +103,3 @@ Details: [docs/setup.md](docs/setup.md) for the step-by-step · [docs/architectu
 | **[lint](skills/lint/SKILL.md)** | `/brain:lint`, weekly-ish | Contradictions, stale claims, orphans, concepts without pages, drift between the wiki and the agent's built-in memory. |
 | **[clip](skills/clip/SKILL.md)** | `/brain:clip <url>` | Keeps an article or document as a ref — one line from you on why it matters — for the next ingest. |
 | **brief** | after every ingest | Recompiles `brief.md` — the ~30 lines worth loading into every session; injected at session start when you turn `inject_brief` on. |
-
-## Two repositories
-
-| | `brain` (this repo) | vault (yours, private) |
-| --- | --- | --- |
-| Contains | pattern, docs, reference scripts, templates, default schema | digests, refs, wiki pages, state — and a thin `CLAUDE.md` that imports the default schema and adds local overrides |
-| Visibility | public | private, or local-only git |
-| Knows about you | nothing | everything |
-
-The split is deliberate: the mechanism and the general conventions are worth sharing; the content is not, and neither are the situation-specific conventions — an employer's org chart, a client list, a research programme — that will grow on top of the defaults. Conventions that turn out to be general get promoted upstream; the rest stays in the vault's `CLAUDE.md` as a delta.
-
-## Installation
-
-### Claude Code
-
-```
-/plugin marketplace add minanyang/brain
-/plugin install brain@brain
-```
-
-Then `/brain:init <path>` to create your first vault. Needs `git` and `jq`. Full walkthrough: [docs/setup.md](docs/setup.md).
-
-### Other agents
-
-Not supported yet. The skills follow the Agent Skills standard, so `npx skills add minanyang/brain` copies them into other agents, but distill depends on Claude Code's hooks and transcript format. What a port needs is listed in [docs/architecture.md](docs/architecture.md#porting-to-another-host).

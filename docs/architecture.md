@@ -76,12 +76,22 @@ Which sessions get distilled, and into which vault, is decided by the session's 
 
 Routing controls *where* a session is filed, not *what was said in it*: a work conversation held in a personal directory ends up in the personal vault. That is a habit, not something the tooling can fix; lint can flag claims carrying a vault-defined tag (say `[company]`) appearing in a vault that does not declare that type.
 
+## Two repositories
+
+| | `brain` (this repo) | vault (yours, private) |
+| --- | --- | --- |
+| Contains | pattern, docs, reference scripts, templates, default schema | digests, refs, wiki pages, state — and a thin `CLAUDE.md` that imports the default schema and adds local overrides |
+| Visibility | public | private, or local-only git |
+| Knows about you | nothing | everything |
+
+The split is deliberate: the mechanism and the general conventions are worth sharing; the content is not, and neither are the situation-specific conventions — an employer's org chart, a client list, a research programme — that will grow on top of the defaults. Conventions that turn out to be general get promoted upstream; the rest stays in the vault's `CLAUDE.md` as a delta.
+
 ## Where things live
 
 | Component | Lives in | Installed to |
 | --- | --- | --- |
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | this repo | the repo is its own marketplace: `/plugin marketplace add minanyang/brain`, then `/plugin install brain@brain` |
-| `/brain:*` skills (`init`, `distill`, `ingest`, `query`, `lint`, `clip`), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin; or into any other agent with `npx skills add minanyang/brain` |
+| `/brain:*` skills (`init`, `distill`, `ingest`, `query`, `lint`, `clip`), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin. `npx skills add minanyang/brain` copies the `SKILL.md` files into another agent but not `scripts/`, and the copies still resolve their scripts through `${CLAUDE_PLUGIN_ROOT}`, so they do not run as copied — see [Porting to another host](#porting-to-another-host) |
 | Hooks (`SessionEnd` → distill, `SessionStart` → catch-up distill + pending-digest reminder) | this repo (`hooks/hooks.json`) | registered by the plugin |
 | Deterministic scripts: transcript extractor, distill runner, secret gate, vault init, status, routing (`resolve-vault.sh`), ingest prep, `finish.sh` (gate → mark sources → regenerate `index.md` and `brief.md` → log → commit → tag, shared by every op), `index.sh`, `lint.sh`, `ref.sh` | this repo (`scripts/`) | called by skills and hooks via `${CLAUDE_PLUGIN_ROOT}` |
 | Default schema, page and digest templates | this repo (`docs/schema.md`, `templates/`) | read by the skills from the plugin root; the schema is injected into in-vault sessions by the `SessionStart` hook |
@@ -199,7 +209,7 @@ If the vault is synced across machines with git:
 
 Brain is built and tested as a Claude Code plugin. The pattern is host-neutral; the automation is not. On another agent you get the documents and the skills and supply the plumbing:
 
-1. **Skills.** `skills/*/SKILL.md` follow the Agent Skills standard; `npx skills add` or copying the directories into the agent's skills folder gives you `/brain:init`, `ingest`, `query`, and `lint`. Untested until the skills exist.
+1. **Skills.** `skills/*/SKILL.md` follow the Agent Skills standard, so copying the directories into the agent's skills folder — or `npx skills add minanyang/brain` — installs them. That carries each `SKILL.md` and its `references/`, but not `scripts/`, which every skill invokes through `${CLAUDE_PLUGIN_ROOT}`. Export that variable at a checkout of this repo and the copied skills resolve their scripts from it unchanged; measured by running clip against a vault with the plugin disabled. Leave it unset and the first command fails as `/scripts/…: no such file` — at which point an agent is liable to improvise the script's work by hand, which is how the secret gate gets skipped, so set it before use rather than after the first failure. Untested on any host other than Claude Code.
 2. **Schema.** Nothing injects `docs/schema.md`. Put it where the agent reads vault instructions — the vault's `AGENTS.md` — and refresh it when Brain updates.
 3. **Transcripts.** `scripts/extract-transcript.sh` reads Claude Code's JSONL. Write a converter from the other agent's transcript format to the same intermediate form: one line per turn with `timestamp`, `role`, `text`, `cwd`. The distill runner does not care what produced it.
 4. **Trigger.** Nothing fires distill. Run `/brain:distill` by hand, or wire `scripts/distill.sh` into a session-end hook if the agent has one, otherwise cron.
