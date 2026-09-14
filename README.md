@@ -23,6 +23,8 @@ Treat your sessions, and anything you hand the agent on purpose, as **sources**,
 
 The wiki is a compounding artifact. You never write it; you read it, correct it, and ask questions against it — and good answers are filed back in.
 
+What that looks like after a month: [examples/vault](examples/vault) is a fabricated vault, from the brief and index down to the session digests and one open conflict.
+
 ## Installation
 
 Needs `git` and `jq`. Nothing is written into your own skills, rules, or global instruction file — the only state outside the plugin is `~/.brain/config.json` and the vault itself.
@@ -60,7 +62,7 @@ What each step prints, what to check, and the optional switches: [docs/setup.md]
 
 ### Other agents
 
-Not supported yet: the skills follow the Agent Skills standard but nothing else here does. What a port needs, and what `npx skills add` does and does not carry, is in [Porting to another host](docs/architecture.md#porting-to-another-host).
+The vault is plain Markdown in a git repository, so any agent or editor can read it today; the pattern is host-neutral. The automation is not: distilling sessions and maintaining the wiki run only in Claude Code. If you use several agents, the shape that fits is one vault that Claude Code maintains and other agents read — feeding their sessions in needs a transcript converter per host, which is the first thing a port adds. What a port needs, and what `npx skills add` does and does not carry, is in [Porting to another host](docs/architecture.md#porting-to-another-host).
 
 ## Why not …
 

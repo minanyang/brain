@@ -24,6 +24,7 @@ This repository is the public pattern and reference implementation. It must neve
 ```
 docs/        architecture, schema, privacy, setup — the pattern
 templates/   vault skeleton and page templates, copied by /brain:init
+examples/    a fabricated vault (acme-billing) showing a month of output; hand-written to docs/schema.md, keep it in step with schema changes
 skills/      /brain:* skills (Agent Skills standard), one directory each: init, distill, ingest, query, lint, clip
 hooks/       hooks.json plus the three scripts it runs
 scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, memory-sync, init-vault, status, resolve-vault, ingest-prep, finish (shared by ingest/query/lint/clip), index, lint, ref
