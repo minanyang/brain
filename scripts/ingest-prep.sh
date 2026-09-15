@@ -20,6 +20,7 @@ config_exists || { echo "no config at $BRAIN_CONFIG — run /brain:init first" >
 vault="" batch=15 cwd="$PWD" by_cwd=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --lease) export BRAIN_LOCK_TOKEN="$2"; shift ;;
     --vault) vault="$2"; shift ;;
     --batch) batch="$2"; shift ;;
     --cwd) cwd="$2"; shift ;;
@@ -39,6 +40,8 @@ vp=$(vault_path "$vault")
 [ -d "$vp" ] || { echo "vault $vault missing at $vp" >&2; exit 1; }
 cd "$vp"
 "$BRAIN_ROOT/scripts/memory-sync.sh" --quiet || true
+lock_wait "$vp" || { log "vault is locked; prep skipped"; exit 1; }
+trap 'unlock "$vp"' EXIT
 
 # Wiki directories: everything except sources/, the three special files, and dotfiles.
 wiki_dirs=$(find . -maxdepth 1 -mindepth 1 -type d ! -name sources ! -name '.*' | sed 's|^\./||' | sort | tr '\n' ' ')
@@ -76,7 +79,7 @@ else
 fi
 printf '\n'
 
-pending=$(grep -l '^ingested: false' sources/*/*.md 2>/dev/null | sort || true)
+pending=$(pending_sources . | sed 's|^./||')
 total=$(printf '%s' "$pending" | grep -c . || true)
 if [ $by_cwd = 1 ]; then
   printf '## Pending sources by working directory (%s waiting)\n\n' "$total"

@@ -1,14 +1,17 @@
 # Default schema
 
-This is the default schema a vault inherits. The plugin injects it at the start of any session whose working directory is a vault; the vault's own `CLAUDE.md` may override any of it, and overrides win.
+This is the default schema a vault inherits. A host integration loads it at the start of a session whose working directory is a vault; the vault's own `CLAUDE.md` contains shared local overrides, and overrides win.
 
 ## Layout
 
 ```
 vault/
-├── CLAUDE.md            local overrides and glossary only; the schema itself is injected by the plugin
+├── CLAUDE.md            shared local overrides and glossary
+├── AGENTS.md            Codex entry point; points back to the shared rules
 ├── sources/             immutable, machine- or hand-written; never browsed, only ingested
-│   ├── sessions/        one digest per session
+│   ├── sessions/
+│   │   ├── claude/      Claude Code session digests
+│   │   └── codex/       Codex session digests
 │   ├── refs/            articles, links, documents handed over on purpose
 │   └── memory/          snapshots of the agent's built-in memory files, one per change
 ├── me/ people/ projects/ decisions/ topics/   default page types; vaults may add more
@@ -39,14 +42,14 @@ brief: false          # true → included when brief.md is compiled
 volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts
 updated: 2026-08-21
-sources: [sources/sessions/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
+sources: [sources/sessions/claude/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
 ---
 ```
 
 ## Page body conventions
 
 - Lead with a two-sentence summary. The rest is headed sections.
-- Every non-obvious claim cites its source inline: `(→ sources/sessions/2026-08-05-invoice-retry.md)`. A claim that came from a human edit is cited `(→ human, 2026-08-22)`.
+- Every non-obvious claim cites its source inline: `(→ sources/sessions/claude/2026-08-05-invoice-retry.md)`. A claim that came from a human edit is cited `(→ human, 2026-08-22)`.
 - Human-sourced claims outrank digest-sourced ones. Ingest may not remove or alter them; a later digest that contradicts one is recorded under `## Conflicts`, not applied. Humans edit pages directly — ingest detects the edits from git (see architecture.md, ingest step 0); no special syntax is required.
 - Link other pages with `[[directory/page]]`. Link liberally; a link to a page that does not exist yet is a TODO for ingest, not an error.
 - Dates are absolute (`2026-08-21`), never relative ("last week").
@@ -62,6 +65,7 @@ date: 2026-08-05
 cwd: ~/Repos/acme-billing
 branch: main
 title: Add retry policy to invoice worker
+host: claude
 ingested: false
 ---
 
@@ -88,7 +92,7 @@ Appended when a session is resumed after it was first distilled. Same sections. 
 Present when the session was too long for one model call. Same sections.
 ```
 
-The distiller is instructed: no code blocks longer than 5 lines, no tool output, no secrets or tokens, no speculation — only what the transcript supports.
+New digests are stored under the matching host directory. Digests created before host separation may remain directly under `sources/sessions/`; ingest and lint support both layouts so existing citations remain valid. The distiller is instructed: no code blocks longer than 5 lines, no tool output, no secrets or tokens, no speculation — only what the transcript supports.
 
 ## Ref template
 

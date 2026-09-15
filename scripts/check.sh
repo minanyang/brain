@@ -64,5 +64,17 @@ if command -v claude >/dev/null; then
   say "ok" "plugin validate"
 fi
 
+if [ -x scripts/test-codex.sh ]; then
+  out=$(mktemp "${TMPDIR:-/tmp}/brain-codex-check.XXXXXX")
+  if scripts/test-codex.sh >"$out" 2>&1; then
+    say "ok" "Codex integration"
+  else
+    say "FAIL" "Codex integration"
+    tail -20 "$out"
+    fail=1
+  fi
+  rm -f "$out"
+fi
+
 [ $fail = 0 ] && say "PASS" "all checks" || say "FAIL" "see above"
 exit $fail

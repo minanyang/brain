@@ -2,8 +2,15 @@
 name: query
 description: "Answer a question from a Brain vault's wiki, with citations back to the page, the session digest and the session id, and file the answer as a page when it is a synthesis worth keeping. Use whenever the user asks what their brain, vault or notes know, why something was decided, when something happened, or asks you to look something up in their own knowledge base rather than in code or on the web — and when a task names a system, person or decision the session-start page list covers but you are about to answer from general knowledge."
 argument-hint: "<question> [--vault <name>]"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Glob, Grep
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Glob, Grep
 ---
+
+## Shared-vault writer lease
+
+Before preparing an ingest, or reading pages that you may file or fix, resolve the vault with `"${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh" [--vault <name>]` and run `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" acquire <path>`. It prints a lease. If busy, stop before editing and retry after the other writer finishes; do not remove another agent's lock.
+
+Pass `--lease <lease>` to every `ingest-prep.sh`, `ref.sh`, and `finish.sh` call below. Keep the lease across reading, edits, and finish, because another host can otherwise replace a page between your read and write. Release with `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" release <path> <lease>` after the operation (including a no-op). If interrupted with unfinished edits, retain the lease and report its value and vault path so the next run can recover without treating agent edits as human corrections. Release before asking the human about conflicts; reacquire and re-read before applying their answer. A plain read-only query needs no lease.
+
 
 Never edit an existing page from here, and never cite a page you have only seen in `index.md` — the index is one generated sentence per page, not the page. Ingest reads the wiki diff since the last run as human corrections that outrank every digest, so an edit made here would come back as a `(→ human)` claim nothing can override — the vault would be citing you as its own authority. Corrections go through the human editing the page, or through `/brain:ingest`.
 
@@ -14,7 +21,7 @@ Answer `$ARGUMENTS` from the vault, not from memory. The schema is injected at s
 2. Read `<vault>/index.md` and pick the pages that can answer the question. Read those pages in full; follow `[[links]]` when a page points elsewhere. Only when the pages are silent, fall back to grepping `<vault>/sources/`.
 
    Two layers can answer and they are not equal, so every answer names the layer it came from. The wiki is synthesized and may be behind: check the page's `updated:` and give the date when it matters, and treat `volatile: true` as "verify before relying on this". `sources/` is verbatim but unintegrated — a digest claim is what one session recorded, not what the vault concluded. When they disagree, a `(→ human, date)` claim beats a digest claim, and a digest newer than the page's `updated:` means the page is behind: say that rather than silently preferring one.
-3. Cite every claim: the page as `[[dir/page]]`, and the underlying source as the page cites it (`sources/sessions/<file>.md`); when the user needs to go back to the original conversation, the digest's `session:` frontmatter is the session id. Say what the vault does not know rather than filling gaps from general knowledge. If a page's `## Conflicts` bears on the answer, present both sides and say the conflict is unresolved.
+3. Cite every claim: the page as `[[dir/page]]`, and the underlying source as the page cites it (`sources/sessions/<host>/<file>.md`, or a legacy flat path); when the user needs to go back to the original conversation, the digest's `host:` and `session:` frontmatter identify it. Say what the vault does not know rather than filling gaps from general knowledge. If a page's `## Conflicts` bears on the answer, present both sides and say the conflict is unresolved.
 4. If the answer is a synthesis worth keeping — a comparison, a timeline, a post-mortem, a how-to that spans several pages — file it: write a page under `topics/`, `decisions/` if it documents a decision, or any directory the vault's `CLAUDE.md` declares, from `${CLAUDE_PLUGIN_ROOT}/templates/page.md`, with `sources:` listing the digests the cited pages cite, then run
 
    ```

@@ -1,6 +1,6 @@
 # Privacy
 
-Transcripts contain everything: pasted internal documents, customer names, tool output with credentials, the occasional API key. The vault is where the distilled form of that ends up. Treat it accordingly.
+Claude Code and Codex transcripts contain everything: pasted internal documents, customer names, tool output with credentials, the occasional API key. The vault is where the distilled form of that ends up. Treat it accordingly.
 
 ## Rules
 

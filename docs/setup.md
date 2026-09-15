@@ -1,6 +1,6 @@
 # Setup
 
-What you do, in order, and what exists afterwards. Everything here is Phase 1–2 behaviour; commands marked *(later)* belong to a later phase.
+What you do, in order, and what exists afterwards.
 
 ## 1. Install the plugin
 
@@ -27,9 +27,11 @@ It asks one question — *which directories should feed this vault?* — with `~
 
    ```
    ~/vaults/personal/
-   ├── CLAUDE.md        local overrides and glossary — starts almost empty
+   ├── CLAUDE.md        shared local overrides and glossary — starts almost empty
+   ├── AGENTS.md        Codex bridge to the shared rules
    ├── .gitignore       .state/
-   ├── sources/sessions/  sources/refs/  sources/memory/
+   ├── sources/sessions/claude/  sources/sessions/codex/
+   ├── sources/refs/  sources/memory/
    ├── me/  people/  projects/  decisions/  topics/
    ├── index.md         empty catalog
    ├── log.md           one entry: ## [date] init | vault created
@@ -64,17 +66,17 @@ Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at
 ## 3. Backfill what already exists
 
 ```
-/brain:distill --days 7
+/brain:distill --all --days 7
 /brain:distill --all --jobs 4
 ```
 
 Start with a week, read a few digests, then run the rest. Claude Code keeps transcripts for 30 days by default (`cleanupPeriodDays`), so the backlog is at most a month unless you raised that; a heavy month is on the order of 150 sessions and half a gigabyte of JSONL, which `--jobs 4` distills in about 20 minutes with a small model.
 
-Walks every transcript under `transcripts`, routes each by its `cwd`, skips the ones that match no vault, and writes a digest per session into the right vault's `sources/sessions/`. Prints what it skipped and why (no vault matched, too short, secret gate tripped). Safe to run again; it is a no-op the second time. One small-model call per session, so on a long history start with `--days 30` and look at a few digests before running the rest.
+Walks every Claude transcript under `transcripts`, routes each by its `cwd`, skips the ones that match no vault, and writes a digest per session into the right vault's `sources/sessions/claude/`. Prints what it skipped and why (no vault matched, too short, secret gate tripped). Safe to run again; it is a no-op the second time. One small-model call per session, so on a long history start with `--days 30` and look at a few digests before running the rest.
 
 ## 4. Use Claude as usual
 
-Nothing to do. When a session ends, its digest appears in the routed vault's `sources/sessions/`. When a session starts, the hook prints one line if there is anything waiting:
+Nothing to do. When a session ends, its digest appears in the routed vault's `sources/sessions/claude/`. When a session starts, the hook prints one line if there is anything waiting:
 
 ```
 [brain] 3 digests pending since 2026-08-19, 1 unresolved conflict — run /brain:ingest
@@ -100,6 +102,34 @@ Open the vault in Obsidian or any editor and read what it wrote. Correct anythin
 - `/brain:lint` — health report: unresolved conflicts, stale pages, orphans, names without a page, digests never ingested, claims that contradict Claude's built-in memory, human claims lost by an ingest. Weekly is plenty.
 - `/brain:clip <url>` — keep an article or document: it is fetched, you say in one line why it matters, and it lands in `sources/refs/` for the next ingest. Paste text instead of a URL when the page cannot be fetched.
 
+## Codex
+
+Codex shares the vault already registered in `~/.brain/config.json`. From the Brain checkout:
+
+```sh
+./scripts/install-codex.sh
+```
+
+The installer adds six `$brain-*` skills, Brain `SessionStart` and `SessionEnd` hooks, Codex transcript roots in the existing Brain config, and an `AGENTS.md` bridge in each registered vault. It preserves unrelated hooks and saves the previous hook file as `hooks.json.brain-backup`. `CLAUDE.md` remains the one shared glossary and override file.
+
+Restart Codex and use `/hooks` to review and trust the two commands. Codex requires explicit trust whenever a hook definition is new or changes. New Codex sessions are then distilled into `sources/sessions/codex/`. Installation records its time and only catches up sessions active afterwards, so it does not silently backfill existing history.
+
+To include older Codex sessions deliberately:
+
+```text
+$brain-distill --all --days 30
+```
+
+Codex uses its configured model for distillation unless `codex_distill_model` is set in `~/.brain/config.json`. `distill_model` continues to control Claude distillation. Both source trees enter the same ingest queue and produce the same wiki pages, index, and brief.
+
+When `CODEX_HOME` is not exported by the environment that launches Codex, pass it explicitly:
+
+```sh
+./scripts/install-codex.sh --codex-home /absolute/path/to/codex-home
+```
+
+Re-run the installer after updating Brain. It refreshes only Brain-managed files and starts no backfill.
+
 ## Where to run what
 
 Every command looks at the current working directory and acts on the vault it routes to; `--vault <name>` overrides that.
@@ -107,7 +137,7 @@ Every command looks at the current working directory and acts on the vault it ro
 | Command | Run it from | Acts on |
 | --- | --- | --- |
 | `/brain:init <path>` | anywhere | creates and registers `<path>` |
-| `/brain:distill` | anywhere | every transcript under the configured roots, each routed to its own vault |
+| `/brain:distill`, `$brain-distill` | anywhere | the invoking host's transcripts under its configured roots, each routed to its own vault |
 | hooks | automatic, every session | the vault the session's directory routes to |
 | `/brain:ingest`, `/brain:query`, `/brain:lint` | anywhere, preferably inside the vault | the vault the directory routes to, or `--vault` |
 
@@ -115,7 +145,7 @@ Two reasons to run ingest and query from inside the vault: the session-start hoo
 
 ## Working inside the vault
 
-Opening Claude with the vault as the working directory is how you query it (`/brain:query <question>`, or just ask — the vault's `CLAUDE.md` plus the schema the hook injects tell the agent how the vault is organised). Answers cite pages and digests; a synthesis worth keeping is filed as a page. Sessions held inside a vault are never distilled; they are not sources.
+Opening Claude or Codex with the vault as the working directory is how you query it (`/brain:query <question>` or `$brain-query <question>`). Answers cite pages and digests; a synthesis worth keeping is filed as a page. Sessions held inside a vault are never distilled; they are not sources.
 
 ## What the hook does with the schema
 
@@ -123,4 +153,4 @@ The plugin is installed under a version-specific path (`~/.claude/plugins/cache/
 
 ## Removing
 
-`/plugin uninstall brain` removes the skills and hooks. Vaults and `~/.brain/config.json` are yours and stay where they are.
+`/plugin uninstall brain` removes the Claude skills and hooks. For Codex, remove the six Brain-managed `brain-*` skill directories, the two Brain entries in `<CODEX_HOME>/hooks.json`, and `<CODEX_HOME>/brain-hook.sh`; restore `hooks.json.brain-backup` only if no other hook changes followed installation. Vaults and `~/.brain/config.json` are yours and stay where they are.

@@ -12,6 +12,7 @@ set -euo pipefail
 vp="" title="" why="" body="" url="" added=$(date +%Y-%m-%d)
 while [ $# -gt 0 ]; do
   case "$1" in
+    --lease) export BRAIN_LOCK_TOKEN="$2"; shift ;;
     --vault) vp=$(expand_home "$2"); shift ;;
     --title) title="$2"; shift ;;
     --why) why="$2"; shift ;;
@@ -27,6 +28,9 @@ done
 if ! "$BRAIN_ROOT/scripts/secret-gate.sh" < "$body"; then
   echo "secret gate blocked the ref; remove the credential from the body and retry" >&2; exit 1
 fi
+
+lock_wait "$vp" || { log "vault is locked; ref skipped"; exit 1; }
+trap 'unlock "$vp"' EXIT
 
 slug=$(jq -rn --arg t "$title" '$t | ascii_downcase | gsub("[^\\p{L}\\p{N}]+"; "-") | gsub("^-+|-+$"; "") | .[0:40] | gsub("-+$"; "")')
 [ -n "$slug" ] || slug="ref"

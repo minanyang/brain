@@ -2,8 +2,15 @@
 name: lint
 description: "Produce a health report on a Brain vault: stale conflicts, stale volatile pages, orphan pages, recurring names with no page, digests never ingested, brief-versus-memory drift, human claims lost by an ingest, and unreadable generated files. Use whenever the user asks whether their vault, brain or wiki is healthy, wants it audited or checked over, or asks about any of those specific problems — and weekly as maintenance."
 argument-hint: "[--vault <name>] [--fix]"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/lint.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(git show *), Read, Edit, Glob, Grep
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/lint.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(git show *), Read, Edit, Glob, Grep
 ---
+
+## Shared-vault writer lease
+
+Before preparing an ingest, or reading pages that you may file or fix, resolve the vault with `"${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh" [--vault <name>]` and run `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" acquire <path>`. It prints a lease. If busy, stop before editing and retry after the other writer finishes; do not remove another agent's lock.
+
+Pass `--lease <lease>` to every `ingest-prep.sh`, `ref.sh`, and `finish.sh` call below. Keep the lease across reading, edits, and finish, because another host can otherwise replace a page between your read and write. Release with `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" release <path> <lease>` after the operation (including a no-op). If interrupted with unfinished edits, retain the lease and report its value and vault path so the next run can recover without treating agent edits as human corrections. Release before asking the human about conflicts; reacquire and re-read before applying their answer. A plain read-only query needs no lease.
+
 
 Produce a report. Do not edit anything unless the user passed `--fix` or asks for a specific fix afterwards. The schema is injected at session start inside a vault; if you are not in one, read `${CLAUDE_PLUGIN_ROOT}/docs/schema.md` for what the rule numbers mean.
 

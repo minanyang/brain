@@ -9,15 +9,16 @@ Raw, append-only, machine-local. Never copied into any repository.
 | Stream | Location | Notes |
 | --- | --- | --- |
 | Claude Code transcripts | `~/.claude/projects/<cwd-slug>/<session-id>.jsonl` | One line per event (`user`, `assistant`, `system`, tool results, `ai-title`, …). Full history survives context compaction — compaction only affects what the model sees, not the file. Sessions grow while open and when resumed. |
+| Codex transcripts | `<CODEX_HOME>/sessions/<year>/<month>/<day>/rollout-*.jsonl` | Rollout events include session metadata, conversation messages, tool calls, and internal events. The adapter keeps conversation and compact tool summaries and drops instructions, reasoning, and duplicate event mirrors. |
 | Calendar, Notion, Slack | via MCP or exports | Later phases. Pulled, not pushed. |
 
-Claude Code is the reference stream and the only one implemented. Adding another agent means one adapter that yields `(timestamp, role, text, cwd)` from wherever that agent keeps its history; nothing downstream changes.
+Claude Code and Codex are implemented streams. Adding another agent means one adapter that yields `(timestamp, role, text, cwd)` from wherever that agent keeps its history; nothing downstream changes.
 
 ### 1 — Sources
 
-Immutable once written. Live under `sources/` in the vault — one directory, so the machine-written material stays out of the way of the pages a human actually browses. Each is small, dated, carries provenance, and records whether ingest has consumed it (`ingested:` in its frontmatter; nothing is moved after processing).
+Immutable once written. Live under `sources/` in the vault, so machine-written material stays out of the way of the pages a human actually browses. Each is small, dated, carries provenance, and records whether ingest has consumed it (`ingested:` in its frontmatter; nothing is moved after processing).
 
-- `sources/sessions/<YYYY-MM-DD>-<slug>.md` — one digest per session. Slug comes from the transcript's `ai-title` when present, else from the first user message.
+- `sources/sessions/<host>/<YYYY-MM-DD>-<slug>.md` — one digest per session, separated by source host. Slug comes from the transcript's title when present, else from the first user message. Legacy flat files remain valid and are not moved, because wiki pages cite their paths.
 - `sources/refs/<YYYY-MM-DD>-<slug>.md` — material the human hands over deliberately: an article, a link, a document, meeting notes. Frontmatter records the URL or origin, the date, and one line from the human on why it matters — that line is what tells ingest where the content belongs. The body is the extracted text itself: a ref is an immutable copy, because links rot and pages change. A link merely mentioned in a session does not become a ref; the digest cites it and moves on. Refs arrive either by hand (drop a file in) or, later, through `/brain:clip <url>`.
 
 #### Why digests are their own layer
@@ -91,12 +92,12 @@ The split is deliberate: the mechanism and the general conventions are worth sha
 | Component | Lives in | Installed to |
 | --- | --- | --- |
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | this repo | the repo is its own marketplace: `/plugin marketplace add minanyang/brain`, then `/plugin install brain@brain` |
-| `/brain:*` skills (`init`, `distill`, `ingest`, `query`, `lint`, `clip`), one directory each, Agent Skills standard `SKILL.md` | this repo (`skills/`) | `~/.claude/plugins/` via the plugin. `npx skills add minanyang/brain` copies the `SKILL.md` files into another agent but not `scripts/`, and the copies still resolve their scripts through `${CLAUDE_PLUGIN_ROOT}`, so they do not run as copied — see [Porting to another host](#porting-to-another-host) |
-| Hooks (`SessionEnd` → distill + memory sync, `SessionStart` → catch-up distill + memory sync + pending-digest reminder) | this repo (`hooks/hooks.json`) | registered by the plugin |
+| Brain skills (`init`, `distill`, `ingest`, `query`, `lint`, `clip`) | this repo (`skills/`) | Claude loads them through the plugin; `scripts/install-codex.sh` generates Codex-bound `$brain-*` copies under the active Codex skill directory |
+| Hooks (`SessionEnd` → distill, `SessionStart` → catch-up + status) | this repo (`hooks/`) | Claude loads `hooks.json`; the Codex installer adds equivalent commands to its active `hooks.json` |
 | Deterministic scripts: transcript extractor, distill runner, memory sync, secret gate, vault init, status, routing (`resolve-vault.sh`), ingest prep, `finish.sh` (gate → mark sources → regenerate `index.md` and `brief.md` → log → commit → tag, shared by every op), `index.sh`, `lint.sh`, `ref.sh` | this repo (`scripts/`) | called by skills and hooks via `${CLAUDE_PLUGIN_ROOT}` |
 | Default schema, page and digest templates | this repo (`docs/schema.md`, `templates/`) | read by the skills from the plugin root; the schema is injected into in-vault sessions by the `SessionStart` hook |
 | Per-machine config (vaults and their routing globs, transcript roots, model names, brief switch) | nowhere in git | `~/.brain/config.json` |
-| Vault `CLAUDE.md`, sources, wiki, `.state/` | the vault | — |
+| Vault `CLAUDE.md`, `AGENTS.md`, sources, wiki, `.state/` | the vault | — |
 | `brief.md` injection | the plugin's `SessionStart` hook, switched by a flag in `~/.brain/config.json` | nothing in the user's own config (whether to inject by default is still open) |
 
 Updating Brain is a plugin update. Nothing is copied into the user's own skills, scripts, rules, or global instruction file, so it never gets entangled with whatever else they keep in their agent config. The plugin is one unit; the only per-machine state outside it is `~/.brain/config.json` and the vault.
@@ -115,9 +116,10 @@ or (on SessionStart) for each transcript newer than its recorded state:
     read from the stored byte offset
     drop: tool_result bodies beyond ~300 chars, file-history events, attachments, system noise
     keep: user messages, assistant text, tool_use command summaries, timestamps, cwd, branch
-    → clean conversation text
-    → cheap model + digest template → sources/sessions/<date>-<slug>.md   (or append a "## Continued" section if the digest already exists)
-    record {session_id: {offset, digest_path, last_ts}} in .state/distilled.json
+    → host-specific extractor → clean conversation text
+    → configured host model + digest template → sources/sessions/<host>/<date>-<slug>.md
+      (or append a "## Continued" section if the digest already exists)
+    record {host:session_id: {offset, digest_path, last_ts}} in .state/distilled.json
 commit sources/sessions/ and log.md
 ```
 
@@ -171,7 +173,7 @@ Weekly or on demand. Produces a report, not edits, unless told otherwise. `scrip
 
 ## Triggers
 
-Distill and ingest are triggered differently because they are different kinds of work.
+Distill and ingest are triggered differently because they are different kinds of work. Claude and Codex both implement these triggers; Codex hooks require explicit review and trust through `/hooks`.
 
 | Op | Trigger | Why |
 | --- | --- | --- |
@@ -185,8 +187,8 @@ Rejected: `Stop` hook (fires every turn); a scheduler such as launchd or cron (a
 
 Two guards the hooks need:
 
-- **Recursion.** The distill runner calls `claude -p` for the summary, and that inner run could fire hooks too. The runner sets `BRAIN_INNER=1` (hook scripts exit immediately when it is set), runs with `--no-session-persistence` so no transcript is written, and loads no settings. Sessions whose `cwd` is the vault are also skipped — the `/brain:ingest` conversation is not itself a source.
-- **Concurrency.** Several sessions can end or start at once. Distill takes an atomic lock (`mkdir .state/lock`) around the write, and one catch-up scan runs at a time. The write lock is not enough on its own: a SessionEnd distill and a catch-up scan picked up the same transcript seconds apart, both read "nothing distilled yet" before their model calls, and the second wrote a duplicate digest under a suffixed name. So a session is also marked in flight (`mkdir .state/inflight/<session>`) across the model call, and the state is re-read under the write lock.
+- **Recursion.** The runner marks its inner summarizer with `BRAIN_INNER=1`. Claude runs without session persistence or settings; Codex runs `--ephemeral` with hooks disabled in a read-only temporary directory. Sessions whose `cwd` is the vault are skipped, so an ingest conversation is not itself a source.
+- **Concurrency.** Several sessions and hosts can act at once. Distill takes an atomic lock around each write and an in-flight marker around each model call. Wiki-writing skills take a lease across their read, edit, and finish calls; a second host waits instead of updating a page from stale content. An interrupted run retains its lease so recovery is explicit and partial agent edits are not mistaken for human corrections.
 
 ## Relationship to built-in agent memory
 
@@ -200,20 +202,20 @@ Claude Code's auto-memory (`~/.claude/projects/<project>/memory/`) is a per-proj
 
 ## Multi-device
 
-If the vault is synced across machines with git:
+If the vault is synced across machines with git, the local filesystem lease cannot coordinate between devices:
 
-- Each machine distills **its own** transcripts into `sources/sessions/`. These are new files or appends — they merge cleanly.
+- Each machine distills **its own** transcripts into the corresponding host directory under `sources/sessions/`. These are new files or appends — they merge cleanly.
 - **Ingest runs on one machine only.** Two machines rewriting `index.md`, `brief.md`, and entity pages will conflict daily. The `brain/last-ingest` tag therefore lives on that machine; human edits made elsewhere are seen once they are pushed.
-- State files under `.state/` are per-machine and gitignored; distill discovers "what is new" from the vault's `sources/sessions/` directory, not only from local state.
+- State files under `.state/` are per-machine and gitignored; distill discovers "what is new" from the vault's recursive `sources/sessions/` tree, not only from local state.
 
 ## Porting to another host
 
-Brain is built and tested as a Claude Code plugin. The pattern is host-neutral; the automation is not. On another agent you get the documents and the skills and supply the plumbing:
+Brain has integrations for Claude Code and Codex. A new host supplies the same four bindings:
 
-1. **Skills.** `skills/*/SKILL.md` follow the Agent Skills standard, so copying the directories into the agent's skills folder — or `npx skills add minanyang/brain` — installs them. That carries each `SKILL.md` and its `references/`, but not `scripts/`, which every skill invokes through `${CLAUDE_PLUGIN_ROOT}`. Export that variable at a checkout of this repo and the copied skills resolve their scripts from it unchanged; measured by running clip against a vault with the plugin disabled. Leave it unset and the first command fails as `/scripts/…: no such file` — at which point an agent is liable to improvise the script's work by hand, which is how the secret gate gets skipped, so set it before use rather than after the first failure. Untested on any host other than Claude Code.
-2. **Schema.** Nothing injects `docs/schema.md`. Put it where the agent reads vault instructions — the vault's `AGENTS.md` — and refresh it when Brain updates.
-3. **Transcripts.** `scripts/extract-transcript.sh` reads Claude Code's JSONL. Write a converter from the other agent's transcript format to the same intermediate form: one line per turn with `timestamp`, `role`, `text`, `cwd`. The distill runner does not care what produced it.
-4. **Trigger.** Nothing fires distill. Run `/brain:distill` by hand, or wire `scripts/distill.sh` into a session-end hook if the agent has one, otherwise cron.
+1. **Skills.** Bind the shared operational skills to the host's discovery path and command syntax. Preserve the writer-lease and finish-script rules.
+2. **Schema.** Load `docs/schema.md` and the vault's shared `CLAUDE.md` through the host's instruction mechanism.
+3. **Transcripts.** Convert the host's format to the metadata and timestamped conversation entries consumed by the distiller. Use a unique host key so session ids cannot collide.
+4. **Trigger.** Wire the adapter to session start and end, with an explicit manual backfill operation.
 
 A native port packages exactly these: the host-specific files are `hooks/` and the extractor; everything else is shared.
 

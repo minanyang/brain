@@ -2,8 +2,15 @@
 name: clip
 description: "Save an article, web page, or handed-over document into a Brain vault as an immutable ref for the next ingest, keeping the body verbatim and recording in the user's own words why it matters. Use whenever the user shares a link or text and wants it kept, clipped, saved, bookmarked, or remembered in their brain, vault or notes — as opposed to just read or summarized now."
 argument-hint: "<url or \"pasted\"> [why it matters] [--vault <name>]"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ref.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(grep *), Write, WebFetch
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ref.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(grep *), Write, WebFetch
 ---
+
+## Shared-vault writer lease
+
+Before preparing an ingest, or reading pages that you may file or fix, resolve the vault with `"${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh" [--vault <name>]` and run `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" acquire <path>`. It prints a lease. If busy, stop before editing and retry after the other writer finishes; do not remove another agent's lock.
+
+Pass `--lease <lease>` to every `ingest-prep.sh`, `ref.sh`, and `finish.sh` call below. Keep the lease across reading, edits, and finish, because another host can otherwise replace a page between your read and write. Release with `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" release <path> <lease>` after the operation (including a no-op). If interrupted with unfinished edits, retain the lease and report its value and vault path so the next run can recover without treating agent edits as human corrections. Release before asking the human about conflicts; reacquire and re-read before applying their answer. A plain read-only query needs no lease.
+
 
 Turn `$ARGUMENTS` into a ref. A ref is an immutable copy of something the user handed over on purpose, plus one line from them on why it matters — that line is what tells ingest where the content belongs.
 

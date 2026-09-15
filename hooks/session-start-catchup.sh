@@ -17,7 +17,7 @@ d="$HOME/.brain/.state/catchup"
 [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ] && rmdir "$d" 2>/dev/null
 mkdir "$d" 2>/dev/null || exit 0
 
-nohup bash -c 'trap "rmdir \"$1\" 2>/dev/null" EXIT; "$2" --quiet --all --days 7; "$3" --quiet' \
+nohup bash -c 'trap "rmdir \"$1\" 2>/dev/null" EXIT; "$2" --quiet --all --host claude --days 7; "$3" --quiet' \
   _ "$d" "$root/scripts/distill.sh" "$root/scripts/memory-sync.sh" >> "$HOME/.brain/logs/distill.log" 2>&1 < /dev/null &
 disown 2>/dev/null || true
 exit 0

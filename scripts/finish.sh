@@ -14,6 +14,7 @@ set -euo pipefail
 vp="" list="" note="" op="" add=()
 while [ $# -gt 0 ]; do
   case "$1" in
+    --lease) export BRAIN_LOCK_TOKEN="$2"; shift ;;
     --vault) vp=$(expand_home "$2"); shift ;;
     --op) op="$2"; shift ;;
     --sources) list="$2"; shift ;;
@@ -25,6 +26,8 @@ done
 case "$op" in ingest|query|lint|clip) ;; *) echo "usage: finish.sh --vault <path> --op <ingest|query|lint|clip> [--sources <list-file>] [--note text]" >&2; exit 2 ;; esac
 [ -d "$vp" ] || { echo "vault not found: $vp" >&2; exit 2; }
 [ -z "$list" ] || [ -f "$list" ] || { echo "sources list not found: $list" >&2; exit 2; }
+lock_wait "$vp" || { echo "vault is locked; operation skipped" >&2; exit 1; }
+trap 'unlock "$vp"' EXIT
 cd "$vp"
 today=$(date +%Y-%m-%d)
 
@@ -68,7 +71,6 @@ case "$op" in
   *)      printf '## [%s] %s | %s pages updated, %s created%s\n' "$today" "$op" "$updated" "$created" "${note:+ — $note}" >> log.md ;;
 esac
 
-lock_wait "$vp" || { echo "vault is locked; commit skipped" >&2; exit 1; }
 # Only ingest may stage the whole tree: it is the op that reads human edits and
 # rewrites the pages. Every other op stages just the generated files and whatever
 # it wrote, because a human edit swept into a Brain commit disappears from the

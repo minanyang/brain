@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Distill Claude Code transcripts into session digests.
+# Distill Claude Code and Codex transcripts into session digests.
 #
 #   distill.sh <transcript.jsonl> [...]     distill the given transcripts
 #   distill.sh --all [--days N] [--jobs J]  every transcript under the configured
@@ -11,7 +11,7 @@
 # For each transcript: route its cwd to a vault, read from the byte offset
 # recorded in <vault>/.state/distilled.json, turn the new part into clean text,
 # redact credential patterns, ask a small model to fill the digest template,
-# run the secret gate on the result, and write sources/sessions/<date>-<slug>.md
+# run the secret gate on the result, and write sources/sessions/<host>/<date>-<slug>.md
 # (or append a "## Continued" section). Very long sessions are summarized in
 # parts at turn boundaries. Idempotent: unchanged transcripts are no-ops.
 set -euo pipefail
@@ -20,19 +20,30 @@ set -euo pipefail
 [ "${BRAIN_INNER:-}" = 1 ] && exit 0
 config_exists || { log "no config at $BRAIN_CONFIG — run /brain:init first"; exit 0; }
 
-all=0 days="" quiet=0 jobs=1 files=()
+all=0 days="" quiet=0 jobs=1 files=() host_filter=all provider="" since=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --all) all=1 ;;
     --days) days="$2"; shift ;;
     --jobs) jobs="$2"; shift ;;
     --quiet) quiet=1 ;;
+    --since) since="$2"; shift ;;
+    --host) host_filter="$2"; shift ;;
+    --provider) provider="$2"; shift ;;
+    --help|-h) echo "usage: distill.sh [--all --days N --jobs J] [--host all|claude|codex] [--provider claude|codex] [transcripts...]"; exit 0 ;;
+    -*) log "unknown option: $1"; exit 2 ;;
     *) files+=("$1") ;;
   esac
   shift
 done
 
+case "$host_filter" in all|claude|codex) ;; *) log "invalid host: $host_filter"; exit 2 ;; esac
+provider="${provider:-$(config_get '.distill_provider' claude)}"
+case "$provider" in claude|codex) ;; *) log "invalid provider: $provider"; exit 2 ;; esac
+case "$jobs" in ''|*[!0-9]*|0) log "jobs must be positive"; exit 2 ;; esac
+case "$days" in *[!0-9]*) log "days must be an integer"; exit 2 ;; esac
 model=$(config_get '.distill_model' haiku)
+[ "$provider" != codex ] || model=$(config_get '.codex_distill_model')
 min_chars=400
 max_chars="${BRAIN_MAX_CHARS:-250000}"   # per model call; roughly 60–80k tokens
 written=0 skipped=0 blocked=0 unrouted=0
@@ -105,11 +116,21 @@ digest_trailer() { # repeated after the transcript so the instruction is the mos
 }
 
 summarize() { # <chunk-file> <section-header>
-  # Small models copy a placeholder's angle brackets into the tag ([topic:<acme-ledger>]; 24 of
-  # 227 digests on one vault); the sed makes the tag shape deterministic whatever the model did.
-  { digest_prompt "$2"; cat "$1"; digest_trailer "$2"; } \
-    | BRAIN_INNER=1 claude -p --model "$model" --no-session-persistence --tools "" --setting-sources "" --output-format text 2>/dev/null \
-    | sed -E 's/\[(person|project|topic):<([^>]*)>\]/[\1:\2]/g'
+  local response="$1.response" args=(--color never)
+  if [ "$provider" = codex ]; then
+    [ -z "$model" ] || args+=(--model "$model")
+    # Ephemeral runs cannot feed themselves back into the next transcript scan.
+    # Run outside the project, with read-only tools; no vault writes by the model.
+    { digest_prompt "$2"; cat "$1"; digest_trailer "$2"; } \
+      | BRAIN_INNER=1 codex exec --ephemeral --sandbox read-only --skip-git-repo-check \
+          -C "$work" -c 'features.shell_tool=false' -c 'features.hooks=false' \
+          "${args[@]}" --output-last-message "$response" - >/dev/null 2>"$1.error" || return 1
+  else
+    { digest_prompt "$2"; cat "$1"; digest_trailer "$2"; } \
+      | BRAIN_INNER=1 claude -p --model "$model" --no-session-persistence --tools "" --setting-sources "" --output-format text \
+          >"$response" 2>"$1.error" || return 1
+  fi
+  sed -E 's/\[(person|project|topic):<([^>]*)>\]/[\1:\2]/g' "$response"
 }
 
 well_formed() { # <text> <expected section header or "">
@@ -118,12 +139,19 @@ well_formed() { # <text> <expected section header or "">
 }
 
 process() {
-  local file="$1" meta session cwd branch title first_ts last_ts end
+  local file="$1" meta session cwd branch title first_ts last_ts end host key
   meta=$("$BRAIN_ROOT/scripts/extract-transcript.sh" --meta "$file") || { say_skip "unreadable: $file"; skipped=$((skipped+1)); return; }
   session=$(jq -r '.session // empty' <<<"$meta")
   [ -n "$session" ] || { say_skip "no session id: $file"; skipped=$((skipped+1)); return; }
+  host=$(jq -r '.host // "claude"' <<<"$meta")
+  [ "$host_filter" = all ] || [ "$host_filter" = "$host" ] || return 0
+  [ "$(jq -r '.internal // false' <<<"$meta")" != true ] || return 0
+  case "$session" in *[!a-zA-Z0-9_-]*|.|..) log "invalid session id"; skipped=$((skipped+1)); return ;; esac
+  # Preserve legacy Claude keys so existing vaults do not re-distill their history.
+  key="$session"; [ "$host" != codex ] || key="codex:$session"
   cwd=$(jq -r '.cwd // empty' <<<"$meta")
   end=$(jq -r '.end' <<<"$meta")
+  if [ -n "$since" ] && [[ "$(jq -r '.last_ts // ""' <<<"$meta")" < "$since" ]]; then return 0; fi
 
   local vault vpath
   vault=$(route "$cwd") || { say_skip "no vault for $cwd ($session)"; skipped=$((skipped+1)); unrouted=$((unrouted+1)); return; }
@@ -131,29 +159,37 @@ process() {
   [ -d "$vpath" ] || { log "vault $vault missing at $vpath"; skipped=$((skipped+1)); return; }
 
   local state="$vpath/.state/distilled.json" offset digest
-  mkdir -p "$vpath/.state" "$vpath/sources/sessions"
+  mkdir -p "$vpath/.state" "$vpath/sources/sessions/$host"
+  lock_wait "$vpath" || { skipped=$((skipped+1)); return; }
   [ -f "$state" ] || echo '{}' > "$state"
-  offset=$(jq -r --arg s "$session" '.[$s].offset // 0' "$state")
-  digest=$(jq -r --arg s "$session" '.[$s].digest // empty' "$state")
+  unlock "$vpath"
+  offset=$(jq -r --arg s "$key" '.[$s].offset // 0' "$state")
+  digest=$(jq -r --arg s "$key" '.[$s].digest // empty' "$state")
   [ "$end" -le "$offset" ] && return   # nothing new
 
   # One run per session at a time. A SessionEnd distill and a catch-up scan picked the same
   # transcript up seconds apart, both read "nothing distilled yet" above, and each wrote its
   # own digest — the second under a suffixed name. The marker spans the model call, which is
   # where the overlap happens; the vault lock below only covers the write. Stale after 30 min.
-  local inflight="$vpath/.state/inflight/$session"
+  local inflight="$vpath/.state/inflight/$key"
   mkdir -p "$vpath/.state/inflight"
   [ -n "$(find "$inflight" -maxdepth 0 -mmin +30 2>/dev/null)" ] && rmdir "$inflight" 2>/dev/null
   mkdir "$inflight" 2>/dev/null || { say_skip "in flight in another run: $session"; skipped=$((skipped+1)); return; }
   trap 'rmdir "$inflight" 2>/dev/null' RETURN
 
+  # Re-read state after taking the session marker, including its empty-digest case.
+  offset=$(jq -r --arg s "$key" '.[$s].offset // 0' "$state")
+  digest=$(jq -r --arg s "$key" '.[$s].digest // empty' "$state")
+  [ "$end" -gt "$offset" ] || return 0
   local text
-  text=$("$BRAIN_ROOT/scripts/extract-transcript.sh" "$file" "$offset" | "$BRAIN_ROOT/scripts/secret-gate.sh" --redact)
+  text=$("$BRAIN_ROOT/scripts/extract-transcript.sh" "$file" "$offset" "$end" | "$BRAIN_ROOT/scripts/secret-gate.sh" --redact)
   if [ "${#text}" -lt "$min_chars" ]; then
     # Too little new material to be worth a model call; remember where we are
     # only if a digest already exists (a fresh, tiny session may still grow).
     if [ -n "$digest" ]; then
-      jq --arg s "$session" --argjson o "$end" '.[$s].offset = $o' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
+      lock_wait "$vpath" || { skipped=$((skipped+1)); return; }
+      jq --arg s "$key" --argjson o "$end" '.[$s].offset = $o' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
+      unlock "$vpath"
     fi
     say_skip "too short, skipped: $session"; skipped=$((skipped+1)); return
   fi
@@ -168,7 +204,7 @@ process() {
   mode=new; [ -n "$digest" ] && [ -f "$vpath/$digest" ] && mode=continued
 
   # Split at turn boundaries (blank lines) once a chunk exceeds max_chars.
-  local dir="$work/$session" n k header body part
+  local dir="$work/$key" n k header body part
   mkdir -p "$dir"
   printf '%s\n' "$text" | awk -v max="$max_chars" -v pfx="$dir/chunk-" '
     BEGIN { n = 1; f = sprintf("%s%03d", pfx, n); size = 0 }
@@ -178,7 +214,7 @@ process() {
   [ "$n" -gt 1 ] && say "long session, $n parts: $session"
 
   body="" k=0
-  for chunk in "$dir"/chunk-*; do
+  for chunk in "$dir"/chunk-[0-9][0-9][0-9]; do
     k=$((k+1))
     if [ "$mode" = continued ]; then
       header="## Continued ($today)"; [ "$n" -gt 1 ] && header="$header, part $k of $n"
@@ -204,7 +240,7 @@ process() {
   lock_wait "$vpath" || { log "vault $vault stayed locked for 2 minutes, giving up on $session"; skipped=$((skipped+1)); return; }
   trap 'unlock "$vpath"; rmdir "$inflight" 2>/dev/null' RETURN
   # A run that held a stale marker could still have finished first; under the lock the state is final.
-  if [ "$(jq -r --arg s "$session" '.[$s].offset // 0' "$state")" -ge "$end" ]; then
+  if [ "$(jq -r --arg s "$key" '.[$s].offset // 0' "$state")" -ge "$end" ]; then
     say_skip "already distilled by another run: $session"; skipped=$((skipped+1)); return
   fi
 
@@ -215,17 +251,19 @@ process() {
   else
     local slug
     slug=$(slugify "$title"); [ -n "$slug" ] || slug="${session:0:8}"
-    digest="sources/sessions/$date-$slug.md"
-    if [ -e "$vpath/$digest" ]; then digest="sources/sessions/$date-$slug-${session:0:8}.md"; fi
+    digest="sources/sessions/$host/$date-$slug.md"
+    if [ -e "$vpath/$digest" ]; then digest="sources/sessions/$host/$date-$slug-$host-$session.md"; fi
+    local suffix=2 base="$digest"
+    while [ -e "$vpath/$digest" ]; do digest="${base%.md}-$suffix.md"; suffix=$((suffix+1)); done
     {
-      printf -- '---\nsession: %s\ndate: %s\ncwd: %s\nbranch: %s\ntitle: %s\ningested: false\n---\n\n' \
-        "$session" "$date" "${cwd/#$HOME/~}" "$branch" "$(printf '%s' "$title" | tr -d '\n' | sed 's/"/\\"/g')"
+      printf -- '---\nsession: %s\ndate: %s\ncwd: %s\nbranch: %s\ntitle: %s\nhost: %s\ningested: false\n---\n\n' \
+        "$session" "$date" "${cwd/#$HOME/~}" "$branch" "$(printf '%s' "$title" | tr -d '\n' | sed 's/"/\\"/g')" "$host"
       printf '%s\n' "$body"
     } > "$vpath/$digest"
   fi
 
-  jq --arg s "$session" --argjson o "$end" --arg d "$digest" --arg t "$last_ts" --arg f "$file" \
-     '.[$s] = {offset: $o, digest: $d, last_ts: $t, transcript: $f}' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
+  jq --arg s "$key" --argjson o "$end" --arg d "$digest" --arg t "$last_ts" --arg f "$file" --arg h "$host" \
+     '.[$s] = {offset: $o, digest: $d, last_ts: $t, transcript: $f, host: $h}' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
   written=$((written+1)); case " $written_in " in *" $vault "*) ;; *) written_in="$written_in $vault" ;; esac
   log "$mode → $vault/$digest"
 }
@@ -233,14 +271,22 @@ process() {
 written_in=""
 
 if [ $all = 1 ]; then
-  while read -r root; do
-    [ -d "$root" ] || continue
-    if [ -n "$days" ]; then
-      find "$root" -mindepth 2 -maxdepth 2 -name '*.jsonl' -mtime "-${days}" -print0
-    else
-      find "$root" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0
+  {
+    if [ "$host_filter" != codex ]; then
+      while IFS= read -r root; do
+        [ -d "$root" ] || continue
+        if [ -n "$days" ]; then find "$root" -mindepth 2 -maxdepth 2 -name '*.jsonl' -mtime "-${days}" -print
+        else find "$root" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print; fi
+      done < <(transcript_roots)
     fi
-  done < <(transcript_roots) | sort -z | while IFS= read -r -d '' f; do printf '%s\n' "$f"; done > "$work/list"
+    if [ "$host_filter" != claude ]; then
+      while IFS= read -r root; do
+        [ -d "$root" ] || continue
+        if [ -n "$days" ]; then find "$root" -name '*.jsonl' -mtime "-${days}" -print
+        else find "$root" -name '*.jsonl' -print; fi
+      done < <(codex_transcript_roots)
+    fi
+  } | sort -u > "$work/list"
 
   # Drop transcripts that have not grown since they were distilled. process() decides
   # this by comparing the file's byte length against the offset in distilled.json, but
@@ -268,7 +314,7 @@ if [ "$jobs" -gt 1 ] && [ ${#files[@]} -gt 1 ]; then
   i=0
   for f in "${files[@]}"; do echo "$f" >> "$work/jobs-$((i % jobs))"; i=$((i+1)); done
   for j in "$work"/jobs-*; do
-    ( while IFS= read -r f; do printf '%s\0' "$f"; done < "$j" | xargs -0 "$BRAIN_ROOT/scripts/distill.sh" $( [ $quiet = 1 ] && echo --quiet ) ) &
+    ( while IFS= read -r f; do printf '%s\0' "$f"; done < "$j" | xargs -0 "$BRAIN_ROOT/scripts/distill.sh" --host "$host_filter" --provider "$provider" $( [ $quiet = 1 ] && echo --quiet ) ) &
   done
   wait
   log "done: $jobs runners finished (see the lines above for their counts)"

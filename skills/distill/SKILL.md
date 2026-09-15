@@ -1,7 +1,7 @@
 ---
 name: distill
-description: "Distill Claude Code transcripts into session digests in the routed vault, via the runner that redacts credentials, tracks byte offsets, and records state. Use when the user asks to backfill past sessions into their brain or vault, or to distill a specific transcript; the hooks do this automatically for each session as it ends, so this is for backfills and one-offs. Never do it by hand: raw transcripts bypass the secret gate, and hand-written digests get duplicated on the next run."
-argument-hint: "[--all] [--days N] [--jobs J] [<transcript.jsonl>]"
+description: "Distill Claude Code or Codex transcripts into session digests in the routed vault, via the runner that redacts credentials, tracks byte offsets, and records state. Use when the user asks to backfill past sessions into their brain or vault, or to distill a specific transcript; the hooks do this automatically for each session as it ends, so this is for backfills and one-offs. Never do it by hand: raw transcripts bypass the secret gate, and hand-written digests get duplicated on the next run."
+argument-hint: "[--all] [--host all|claude|codex] [--provider claude|codex] [--days N] [--jobs J] [<transcript.jsonl>]"
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/distill.sh *)
 disable-model-invocation: true
 ---
@@ -12,6 +12,7 @@ Run the distill runner with the user's arguments:
 "${CLAUDE_PLUGIN_ROOT}/scripts/distill.sh" $ARGUMENTS
 ```
 
+- `--host` selects transcript sources; `--provider` selects the summarizing CLI independently. Codex uses `codex_distill_model` when configured, otherwise its configured default; Claude uses `distill_model`.
 - `--all` walks every transcript under the configured roots; add `--days N` to limit to recently modified ones. Each transcript is routed by its `cwd`; those matching no vault are skipped and listed. A session held **inside** a vault also prints `no vault for <vault path>` — that is deliberate, not a misconfiguration: the conversation in which the wiki is tidied must not become a source.
 - A first backfill can never reach further back than about 30 days, because Claude Code deletes transcripts on that schedule. On a fresh install `--all` and `--all --days 30` return nearly the same set.
 - With no arguments, ask whether the user wants `--all` (full backfill, one small-model call per session) or `--all --days 30`. For a large history add `--jobs 4`: writes are serialized by the vault lock, so parallel runners are safe and cut a month of sessions from about an hour to twenty minutes.

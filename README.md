@@ -27,7 +27,7 @@ What that looks like after a month: [examples/vault](examples/vault) is a fabric
 
 ## Installation
 
-Needs `git` and `jq`. Nothing is written into your own skills, rules, or global instruction file — the only state outside the plugin is `~/.brain/config.json` and the vault itself.
+Needs `git` and `jq`. Claude Code installs Brain as a plugin. Codex uses a local adapter that installs Brain skills and lifecycle hooks; both hosts use the same `~/.brain/config.json` and vault.
 
 ### Claude Code
 
@@ -60,9 +60,21 @@ After that nothing needs starting. Every session you finish is distilled by a ho
 
 What each step prints, what to check, and the optional switches: [docs/setup.md](docs/setup.md).
 
+### Codex
+
+After creating or registering a vault through Claude Code, run from this checkout:
+
+```sh
+./scripts/install-codex.sh
+```
+
+Restart Codex, open `/hooks`, and trust the two Brain hooks. Codex then installs the same six operations as `$brain-init`, `$brain-distill`, `$brain-ingest`, `$brain-query`, `$brain-lint`, and `$brain-clip`. Claude and Codex write their raw session digests separately under `sources/sessions/claude/` and `sources/sessions/codex/`; ingest folds both into the same wiki pages and brief. The installer does not backfill existing Codex sessions. Run `$brain-distill --all --days 30` explicitly if you want them included.
+
+The installer records its Codex transcript directories in `~/.brain/config.json`, adds a small `AGENTS.md` bridge to each registered vault, and preserves unrelated skills and hooks. Re-run it after updating this checkout. See [setup](docs/setup.md#codex) for custom `CODEX_HOME` and removal details.
+
 ### Other agents
 
-The vault is plain Markdown in a git repository, so any agent or editor can read it today; the pattern is host-neutral. The automation is not: distilling sessions and maintaining the wiki run only in Claude Code. If you use several agents, the shape that fits is one vault that Claude Code maintains and other agents read — feeding their sessions in needs a transcript converter per host, which is the first thing a port adds. What a port needs, and what `npx skills add` does and does not carry, is in [Porting to another host](docs/architecture.md#porting-to-another-host).
+The vault is plain Markdown in a git repository, so any agent or editor can read it today. Claude Code and Codex have tested write integrations. Another host needs its own transcript converter, hooks, and skill bindings; see [Porting to another host](docs/architecture.md#porting-to-another-host).
 
 ## Why not …
 
@@ -83,7 +95,7 @@ Four layers, not three. The extra one is what makes noisy streams usable as sour
                later: calendar, Notion, Slack exports
                       │  distill  (mechanical, idempotent, cheap model)
  1  Sources    immutable, in the vault
-               sources/sessions/<date>-<slug>.md   one digest per session
+               sources/sessions/<host>/<date>-<slug>.md   one digest per session
                sources/refs/<date>-<slug>.md       articles, links, documents you hand over
                       │  integrate  (judgment, stronger model)
  2  Wiki       owned and rewritten by the agent
@@ -99,7 +111,7 @@ Details: [docs/setup.md](docs/setup.md) for the step-by-step · [docs/architectu
 
 | Op | Trigger | What it does |
 | --- | --- | --- |
-| **[distill](skills/distill/SKILL.md)** | automatic — `SessionEnd` hook for the session that just ended, `SessionStart` hook catches anything missed | New or grown transcript → clean conversation text → digest. Tracks byte offsets so resumed sessions are processed incrementally. |
+| **[distill](skills/distill/SKILL.md)** | automatic — host `SessionEnd` hook for the session that just ended, `SessionStart` catches anything missed | New or grown transcript → host-specific digest. Tracks byte offsets so resumed sessions are processed incrementally. |
 | **[ingest](skills/ingest/SKILL.md)** | deliberate — `/brain:ingest`; the `SessionStart` hook reminds you when digests or unresolved conflicts are pending | Reads new digests / log entries / human edits, updates entity and topic pages, `index.md`, `log.md`. Records contradictions instead of overwriting, then asks you to decide them. |
 | **[query](skills/query/SKILL.md)** | `/brain:query` | Reads `index.md`, drills into pages, answers with citations back to digests and session ids. Answers worth keeping are filed as new pages. |
 | **[lint](skills/lint/SKILL.md)** | `/brain:lint`, weekly-ish | Contradictions, stale claims, orphans, concepts without pages, drift between the wiki and the agent's built-in memory. |

@@ -4,6 +4,7 @@ date: <YYYY-MM-DD>
 cwd: <cwd>
 branch: <branch>
 title: <ai-title or first user message, ≤ 60 chars>
+host: <claude or codex>
 ingested: false
 ---
 

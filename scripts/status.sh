@@ -25,7 +25,7 @@ done < <(jq -r '.vaults[] | [.name, .path] | @tsv' "$BRAIN_CONFIG")
 [ -n "${vault:-}" ] || vault=$(route "$cwd") || vault=""
 if [ -n "$vault" ]; then
   vp=$(vault_path "$vault")
-  pending_files=$(grep -l '^ingested: false' "$vp"/sources/*/*.md 2>/dev/null || true)
+  pending_files=$(pending_sources "$vp")
   pending=$(printf '%s' "$pending_files" | grep -c . || true)
   if [ "$pending" -gt 0 ]; then
     # A digest continued after it was ingested is pending since its last append, not since
@@ -56,12 +56,12 @@ if [ -n "$vault" ]; then
     cutoff=$(date -v-30d +%Y-%m-%d 2>/dev/null || date -d '30 days ago' +%Y-%m-%d)
     digests="" probe="$cwd"
     while [ -z "$digests" ] && [ "$probe" != "$HOME" ] && [ "$probe" != / ]; do
-      digests=$(awk -v cwd="$probe" -v home="$HOME" -v cutoff="$cutoff" '
+      digests=$(find "$vp/sources/sessions" -type f -name '*.md' -print0 | xargs -0 awk -v prefix="$vp/" -v cwd="$probe" -v home="$HOME" -v cutoff="$cutoff" '
         FNR == 1 { n = split(FILENAME, a, "/"); base = a[n]; if (substr(base, 1, 10) < cutoff) nextfile }
         /^cwd:/ { c = substr($0, 6); sub(/^~/, home, c)
-                  if (c == cwd || index(c, cwd "/") == 1) print "sources/sessions/" base
+                  if (c == cwd || index(c, cwd "/") == 1) { relative = FILENAME; if (index(relative, prefix) == 1) relative = substr(relative, length(prefix) + 1); print relative }
                   nextfile }
-        FNR > 8 { nextfile }' "$vp"/sources/sessions/*.md 2>/dev/null || true)
+        FNR > 10 { nextfile }' 2>/dev/null || true)
       probe=$(dirname "$probe")
     done
     map=""

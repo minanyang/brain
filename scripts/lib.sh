@@ -3,7 +3,7 @@
 # Requires: bash 3.2+, jq, git.
 
 BRAIN_CONFIG="${BRAIN_CONFIG:-$HOME/.brain/config.json}"
-BRAIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+BRAIN_ROOT="${BRAIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}}"
 
 expand_home() { printf '%s' "${1/#\~/$HOME}"; }
 
@@ -65,18 +65,36 @@ route() {
 # vault_path <name>
 vault_path() { expand_home "$(jq -r --arg n "$1" '.vaults[] | select(.name == $n) | .path' "$BRAIN_CONFIG")"; }
 
-# lock <vault-path>: atomic mkdir lock. Returns 1 if held. Stale after 1h.
+# A short script lock has a PID; an agent editing across tool calls holds an explicit
+# lease instead. Never steal a lease on a timer: the other agent may still be editing.
 lock() {
-  local d="$1/.state/lock"
+  local d="$1/.state/lock" owner
   mkdir -p "$1/.state"
   if mkdir "$d" 2>/dev/null; then echo $$ > "$d/pid"; return 0; fi
-  if [ -n "$(find "$d" -maxdepth 0 -mmin +60 2>/dev/null)" ]; then
-    unlock "$1"
-    mkdir "$d" 2>/dev/null && { echo $$ > "$d/pid"; return 0; }
+  if [ -f "$d/owner" ]; then
+    owner=$(cat "$d/owner")
+    [ -n "${BRAIN_LOCK_TOKEN:-}" ] && [ "$owner" = "$BRAIN_LOCK_TOKEN" ]
+    return
+  fi
+  # A crashed short script is recoverable. A missing PID may be a lock still being
+  # initialized, so leave it alone rather than racing its creator.
+  if [ -f "$d/pid" ]; then
+    owner=$(cat "$d/pid")
+    case "$owner" in ''|*[!0-9]*) return 1 ;; esac
+    if ! kill -0 "$owner" 2>/dev/null; then
+      rm -f "$d/pid"
+      rmdir "$d" 2>/dev/null || return 1
+      mkdir "$d" 2>/dev/null && { echo $$ > "$d/pid"; return 0; }
+    fi
   fi
   return 1
 }
-unlock() { rm -f "$1/.state/lock/pid"; rmdir "$1/.state/lock" 2>/dev/null || true; }
+unlock() {
+  local d="$1/.state/lock"
+  [ -f "$d/owner" ] && return 0 # Only write-lock.sh release ends an editing lease.
+  [ "$(cat "$d/pid" 2>/dev/null)" = "$$" ] || return 0
+  rm -f "$d/pid"; rmdir "$d" 2>/dev/null || true
+}
 
 log() { printf '[brain] %s\n' "$*" >&2; }
 
@@ -98,4 +116,19 @@ resolve_vault() {
     p=$(expand_home "$p"); case "$cwd" in "$p"|"$p"/*) printf '%s' "$n"; return 0 ;; esac
   done < <(jq -r '.vaults[] | [.name, .path] | @tsv' "$BRAIN_CONFIG")
   route "$cwd"
+}
+
+# Codex archives keep the same rollout format. An explicit list also supports
+# account managers that put CODEX_HOME outside ~/.codex.
+codex_transcript_roots() {
+  jq -r --arg home "${CODEX_HOME:-$HOME/.codex}" '
+    .codex_transcripts // [$home + "/sessions", $home + "/archived_sessions"] | .[]
+  ' "$BRAIN_CONFIG" | while IFS= read -r r; do printf '%s\n' "$(expand_home "$r")"; done
+}
+
+# All source types, including legacy flat session digests and host subdirectories.
+pending_sources() {
+  find "$1/sources" -type f -name '*.md' -exec grep -l '^ingested: false' {} + 2>/dev/null \
+    | while IFS= read -r f; do printf '%s\t%s\n' "$(basename "$f")" "$f"; done \
+    | sort | cut -f2- || true
 }

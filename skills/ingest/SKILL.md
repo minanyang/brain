@@ -2,8 +2,15 @@
 name: ingest
 description: "Integrate a Brain vault's pending session digests and refs into its wiki pages — the multi-step pipeline of collecting human edits, classifying facts onto pages, recording contradictions, and committing through the vault's own scripts. Use whenever the user asks to ingest, to process or integrate pending sources or digests, to update or catch up their brain, vault or wiki, or acts on a session-start notice that sources are pending. Do not do this by hand: the pipeline preserves human corrections and provenance that hand-editing destroys."
 argument-hint: "[--vault <name>] [--batch N]"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
 ---
+
+## Shared-vault writer lease
+
+Before preparing an ingest, or reading pages that you may file or fix, resolve the vault with `"${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh" [--vault <name>]` and run `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" acquire <path>`. It prints a lease. If busy, stop before editing and retry after the other writer finishes; do not remove another agent's lock.
+
+Pass `--lease <lease>` to every `ingest-prep.sh`, `ref.sh`, and `finish.sh` call below. Keep the lease across reading, edits, and finish, because another host can otherwise replace a page between your read and write. Release with `"${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh" release <path> <lease>` after the operation (including a no-op). If interrupted with unfinished edits, retain the lease and report its value and vault path so the next run can recover without treating agent edits as human corrections. Release before asking the human about conflicts; reacquire and re-read before applying their answer. A plain read-only query needs no lease.
+
 
 Integrate pending sources into the wiki, one batch at a time, committing after each batch. The schema is injected at session start when you are inside a vault; if you are not, read `${CLAUDE_PLUGIN_ROOT}/docs/schema.md` first.
 
@@ -25,7 +32,7 @@ Read each pending source in full — except one the report marks "already ingest
 
 - Decide the page type — `me`, `person`, `project`, `decision`, `topic`, or a declared type. Never invent a type; an unclassifiable fact goes to `topics/`.
 - Find the page in the index (resolve names through the glossary; one entity, one page — do not create `projects/acme` next to `projects/Acme`). Create the page from `${CLAUDE_PLUGIN_ROOT}/templates/page.md` if it does not exist. File names: lowercase, hyphenated, no dates except in `decisions/`.
-- Rewrite the page, do not append: lead with a two-sentence summary, then headed sections. Cite every non-obvious claim inline `(→ sources/sessions/<file>.md)`. Link related pages with `[[dir/page]]`. Absolute dates only. Update `updated:` and `sources:` in the frontmatter.
+- Rewrite the page, do not append: lead with a two-sentence summary, then headed sections. Cite every non-obvious claim inline using its exact path, normally `(→ sources/sessions/<host>/<file>.md)`. Link related pages with `[[dir/page]]`. Absolute dates only. Update `updated:` and `sources:` in the frontmatter.
 - A fact that contradicts an existing claim is **not** applied. Record both under `## Conflicts` as `- [open] <today>: "<existing>" (→ its source) vs "<new>" (→ new source)` and leave the body as it was. Never pick a winner.
 - Pages with `locked: true`: only `## Conflicts` may change.
 

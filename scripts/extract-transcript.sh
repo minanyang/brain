@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Turn a Claude Code transcript (JSONL) into clean conversation text.
+# Turn a Claude Code or Codex transcript (JSONL) into clean conversation text.
 #
 #   extract-transcript.sh <transcript.jsonl> [byte-offset]   → text on stdout
 #   extract-transcript.sh --meta <transcript.jsonl>          → JSON on stdout
@@ -24,11 +24,22 @@ size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
 end=$size
 if [ "$size" -gt 0 ] && [ "$(tail -c 1 "$file" | od -An -c | tr -d ' ')" != '\n' ]; then
   # Byte length of the unterminated last line, subtracted from the size.
-  partial=$(tail -c 65536 "$file" | LC_ALL=C awk 'BEGIN{RS="\n"} {l=length($0)} END{print l+0}')
+  partial=$(tail -n 1 "$file" | wc -c | tr -d ' ')
   end=$((size - partial))
+fi
+# The caller can freeze the boundary obtained from --meta while a session grows.
+if [ -n "${3:-}" ]; then
+  [ "$3" -le "$end" ] || { echo 'transcript shrank during extraction' >&2; exit 1; }
+  end="$3"
 fi
 
 slice() { head -c "$end" "$file" | tail -c +"$((offset + 1))"; }
+
+host=$(head -c "$end" "$file" | head -n 1 | jq -r 'if .type == "session_meta" then "codex" else "claude" end' 2>/dev/null || true)
+if [ "$host" = codex ]; then
+  slice | jq -nRr --arg mode "$mode" --argjson end "$end" -f "$(dirname "$0")/extract-codex.jq"
+  exit 0
+fi
 
 if [ "$mode" = meta ]; then
   head -c "$end" "$file" | jq -n -R --arg end "$end" '
@@ -53,6 +64,7 @@ if [ "$mode" = meta ]; then
         | gsub("\\s+"; " ") | gsub("^ | $"; "")
         | gsub("^[\\[\\]#>*`_ -]+"; "")   # a pasted document opens with markdown, not a title
         | .[0:60]))
+    | .host = "claude"
     | .end = ($end | tonumber)
     | del(.first_prompt)'
   exit 0
