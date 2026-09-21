@@ -98,6 +98,19 @@ Open the vault in Obsidian or any editor and read what it wrote. Correct anythin
 
 - `inject_brief: true` in `config.json` — the session-start hook adds the routed vault's `brief.md` to every session's context, so the agent starts each conversation already knowing your working style and main projects, plus a short list of the wiki pages that recent sessions in the current directory fed, so it knows which pages to read before answering. Off by default; flip it once you trust the wiki. Per machine; nothing in your Claude config changes.
 - `distill_model` — the model the distill runner passes to `claude -p`. Small is fine; distill is mechanical.
+- `auto_ingest` — run one ingest in the background at session start when the backlog has grown. Distilling is already automatic, so without this the digests sit in `sources/` until you notice the reminder and run `/brain:ingest`; the first vault's own figures were a median under a day but a p90 of 102 h, with the oldest digest waiting 11 days. Off by default, because it spends model budget without asking and rewrites the `brief.md` every later session reads. Turn it on with:
+
+  ```json
+  "auto_ingest": {
+    "enabled": true,
+    "min_pending": 20,
+    "max_age_hours": 24,
+    "min_interval_hours": 6,
+    "model": "sonnet"
+  }
+  ```
+
+  It fires when either `min_pending` digests are waiting or any one of them is older than `max_age_hours`, and never more often than `min_interval_hours`. Pick a model that can split an overgrown page and notice a file missing from its own batch; `haiku` is enough for distill and is not enough for this. An unattended run leaves every conflict `[open]` for you: it has no access to `git` or the cloud to verify against, and a guess recorded as a decision cannot be found later. Watch it in `~/.brain/logs/ingest.log`, and run `scripts/auto-ingest.sh --force --dry-run` to see what it would do right now.
 - Memory sync needs no switch: after every distill, any memory file Claude wrote under `~/.claude/projects/*/memory/` that changed since the last sync is copied into the routed vault's `sources/memory/` and waits for the next ingest like a digest. Nothing is written back to the memory directory.
 - `/brain:lint` — health report: unresolved conflicts, stale pages, orphans, names without a page, digests never ingested, claims that contradict Claude's built-in memory, human claims lost by an ingest. Weekly is plenty.
 - `/brain:clip <url>` — keep an article or document: it is fetched, you say in one line why it matters, and it lands in `sources/refs/` for the next ingest. Paste text instead of a URL when the page cannot be fetched.

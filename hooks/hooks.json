@@ -1,5 +1,5 @@
 {
-  "description": "Brain: distill the session that just ended, catch up on missed ones at startup, and remind about pending digests.",
+  "description": "Brain: distill the session that just ended, catch up on missed ones at startup, ingest a backlog that has crossed its threshold, and remind about pending digests.",
   "hooks": {
     "SessionEnd": [
       {
@@ -29,6 +29,11 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-catchup.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-ingest.sh\"",
             "timeout": 5
           }
         ]
