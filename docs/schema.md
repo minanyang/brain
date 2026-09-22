@@ -56,6 +56,19 @@ sources: [sources/sessions/claude/2026-08-05-invoice-retry.md, sources/refs/2026
 - Contradictions live under `## Conflicts`, one line each: `- [open] 2026-08-21: "<existing claim>" (→ its source) vs "<new claim>" (→ new source)`. The agent never picks a winner. When a human decides, the winning claim goes into the body cited `(→ human, date)` and the entry becomes `- [resolved 2026-08-22] …`. The fixed prefix is what the reminder and lint grep for.
 - Pages are rewritten, not appended to. History is in git, not in the page.
 
+## Status claims
+
+A status is a claim that stays true only until something moves: merged or not, deployed or not, fixed, open, blocked, who owns it. A present-tense status with no date reads as true forever, and it is the claim a page most often gets wrong.
+
+- **Dated.** Write it as of a date: "As of 2026-09-22, the fix is on `main`." A dated status is still true after the branch moves, as history. An undated one silently becomes false.
+- **Checked where git can settle it,** and marked so it can be checked again: `(verified 2026-09-22: ~/Repos/acme-billing a1b2c3d in origin/main)`, or `not-in`. The fields are fixed: the date, the repository's path, a commit, `in` or `not-in`, and a ref. `scripts/verify.sh` re-checks every marker; ingest prep and lint list the ones that no longer hold. Write what git shows, not what a session believed.
+- **One home.** Each status lives on exactly one page, the page of the thing it is the status of (its project, or its ticket's topic page). Other pages link there with `[[…]]` and do not restate it. A status copied onto five pages is updated on one and stale on four.
+- **Newer is an update, not a conflict.** A status dated later than the one on the page replaces it; keep the old one as a one-line dated event only if it matters. `## Conflicts` is for claims about the same moment that disagree.
+
+## Primary documents
+
+When the authority for a fact is a document in a repository — a spec, a runbook, a release record, an ADR — the page states the conclusion in a sentence and cites the document by path: `(→ ~/Repos/acme-billing/docs/adr/0007-retries.md)`. The reasons, the steps and the numbers stay in the document. A page that retells a spec is read instead of the spec, and what the retelling dropped is lost to every reader after it. The page's own value is what no single document holds: how the documents connect, what happened between them, and where to look.
+
 ## Session digest template
 
 ```markdown
@@ -164,3 +177,4 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 6. `brief.md` claims that contradict `~/.claude/projects/*/memory/*.md`.
 7. Any `(→ human, …)` claim present before an ingest and absent after it.
 8. `index.md`, `brief.md` or `log.md` not valid UTF-8 — a generated file cut mid-character makes grep treat it as binary and skip it silently.
+9. A `(verified …)` marker that git no longer bears out.

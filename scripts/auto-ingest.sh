@@ -109,8 +109,10 @@ question, so never ask one and never wait for input.
 Follow the instructions below, which are Brain's ingest skill, with these overrides:
 - Work on vault '$name' at $vp. Pass --vault '$name' to resolve-vault.sh and ingest-prep.sh.
 - Step 7 (conflicts): skip it. Leave every conflict [open], including ones that look like
-  questions of fact: this run has no git or cloud access to verify against, you have no one
-  to ask, and a guess recorded as a decision cannot be found later.
+  questions of fact: you have no one to ask, git settles only part of a conflict, and a
+  wrong decision recorded here cannot be found later. Do check status claims with
+  git-read.sh as step 3 says, and rewrite the STALE claims prep lists: that updates a dated
+  fact, it does not decide a conflict.
 - Stop after the batch that empties the backlog, or after 4 batches, whichever comes first.
   Whatever you leave pending, the next run picks up.
 - If the vault is busy or a script fails twice, release the lease and stop. Do not improvise
@@ -135,6 +137,7 @@ EOF
         "Bash($BRAIN_ROOT/scripts/resolve-vault.sh *)" \
         "Bash($BRAIN_ROOT/scripts/write-lock.sh *)" \
         "Bash($BRAIN_ROOT/scripts/ingest-prep.sh *)" \
+        "Bash($BRAIN_ROOT/scripts/git-read.sh *)" \
         "Bash($BRAIN_ROOT/scripts/finish.sh *)" \
     </dev/null > "$out" 2>&1
   status=$?

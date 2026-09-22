@@ -11,8 +11,8 @@
 # sources by the time they are counted.
 # Sections: the vault and its page types, human edits since the last ingest
 # (git diff against the brain/last-ingest tag, working tree included, wiki
-# directories only), the next N pending sources (ingested: false, oldest first)
-# with the total still waiting, and the current index.
+# directories only), git markers that no longer hold (verify.sh), the next N pending
+# sources (ingested: false, oldest first) with the total still waiting, and the current index.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 config_exists || { echo "no config at $BRAIN_CONFIG — run /brain:init first" >&2; exit 1; }
@@ -76,6 +76,14 @@ if git rev-parse -q --verify brain/last-ingest >/dev/null 2>&1; then
   fi
 else
   printf '(first ingest — no brain/last-ingest tag yet)\n'
+fi
+printf '\n'
+
+printf '## Status markers that no longer hold\n\n'
+stale=$("$BRAIN_ROOT/scripts/verify.sh" . 2>/dev/null || true)
+if [ -z "$stale" ]; then printf '(none)\n'; else
+  printf 'STALE: git now shows the opposite of the claim; re-check it and rewrite the claim as of today. NO-REPO, NO-COMMIT, NO-REF: this machine cannot check it; leave it.\n\n'
+  printf '%s\n' "$stale" | awk -F'\t' '{ printf "- %s %s %s — %s\n", $1, $2, $3, $4 }'
 fi
 printf '\n'
 

@@ -2,7 +2,7 @@
 name: ingest
 description: "Integrate a Brain vault's pending session digests and refs into its wiki pages — the multi-step pipeline of collecting human edits, classifying facts onto pages, recording contradictions, and committing through the vault's own scripts. Use whenever the user asks to ingest, to process or integrate pending sources or digests, to update or catch up their brain, vault or wiki, or acts on a session-start notice that sources are pending. Do not do this by hand: the pipeline preserves human corrections and provenance that hand-editing destroys."
 argument-hint: "[--vault <name>] [--batch N]"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
+allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/write-lock.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/resolve-vault.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/finish.sh *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/git-read.sh *), Read, Write, Edit, Glob, Grep, Task, Agent
 ---
 
 ## Shared-vault writer lease
@@ -20,7 +20,7 @@ Integrate pending sources into the wiki, one batch at a time, committing after e
 "${CLAUDE_PLUGIN_ROOT}/scripts/ingest-prep.sh" $ARGUMENTS
 ```
 
-Read the whole report. It gives you the vault path, the page types (defaults plus those the vault's `CLAUDE.md` declares), human edits since the last ingest, the batch of pending sources, and the current index. Also read the vault's `CLAUDE.md` for its glossary and local overrides. If nothing is pending and there are no human edits, say so and stop.
+Read the whole report. It gives you the vault path, the page types (defaults plus those the vault's `CLAUDE.md` declares), human edits since the last ingest, status markers that no longer hold, the batch of pending sources, and the current index. Also read the vault's `CLAUDE.md` for its glossary and local overrides. If nothing is pending, there are no human edits and no marker is STALE, say so and stop.
 
 ## 2. Human edits outrank everything
 
@@ -38,10 +38,12 @@ Read each pending source in full — except one the report marks "already ingest
 
   | The excuse you will reach for | Why it is wrong |
   | --- | --- |
-  | "The newer source is obviously right" | Recency is not authority. Both go under `## Conflicts`. |
+  | "The newer source is obviously right" | Recency is not authority. Only a source that says the state *changed* after the page's date is an update; one that says the page was wrong goes under `## Conflicts` with it. |
   | "This is a clarification, not a contradiction" | If the existing claim would have to change, it is a contradiction. |
   | "Nobody will care about this small difference" | The human decides that, not you. A conflict costs one line; a silent overwrite costs the claim. |
+  | "The digest says it was merged; no need to check" | A digest records what a session believed at the time. Unchecked present-tense status is the vault's most common wrong claim. |
 
+- Status and primary documents follow the schema's "Status claims" and "Primary documents" rules. Before you write whether something is merged, deployed or released, check it with `"${CLAUDE_PLUGIN_ROOT}/scripts/git-read.sh" <repo> merge-base --is-ancestor <commit> <ref>` (or `log`, `show`) and add the marker; write what git shows, not what the source believed. A status dated later than the page's is an update, not a contradiction: replace the page's status and keep the old one as a dated event line only if it matters. Rewrite every STALE claim prep lists the same way.
 - Promote to `decisions/` only what has consequences beyond one session; small choices stay as a line on the project page. Set `brief: true` on the handful of pages a new session should always see (the user's working style, the main projects); keep that set small.
 - Keep the page bounded. A rewrite folds superseded detail into the current-state section and leaves one line per dated event — the old wording is in git, not on the page. When a section stops being about one thing, split it into its own `topics/` page and link it.
 - A ref is not a digest. Its `why:` line is the human's routing opinion and tells you which page the body belongs to; the body is an external source, cited `(→ sources/refs/<file>.md)` and never written up as the user's own view or decision.
@@ -77,7 +79,7 @@ When more than ~40 sources are pending, do not read them all into this context. 
 
 When you stop, list every `[open]` conflict the run recorded (finish prints them).
 
-Resolve what you can before asking. About half of accumulated conflicts are questions of fact rather than judgment — the repository, `git log`, the forge or the cloud console settles them. Verify those, write the winner into the page cited `(→ human, <today>, verified against <what you checked>)`, mark the entry `[resolved <today>] … — decided: <clause>`, and ask the human only where both claims stay defensible. A first ingest that hands over twenty-five questions gets no answer at all.
+Resolve what you can before asking. About half of accumulated conflicts are questions of fact rather than judgment — the repository (read it; run git through `git-read.sh`), the forge or the cloud console settles them. Verify those, write the winner into the page cited `(→ human, <today>, verified against <what you checked>)`, mark the entry `[resolved <today>] … — decided: <clause>`, and ask the human only where both claims stay defensible. A first ingest that hands over twenty-five questions gets no answer at all.
 
 For the rest, ask the human to decide each one, or leave it. For a decision: put the winning claim in the page body cited `(→ human, <today>)`, change the entry to `- [resolved <today>] …`, then run `finish.sh --vault <path> --op ingest --note "resolve conflict on <page>"`, which gates the page you just edited and logs the decision.
 

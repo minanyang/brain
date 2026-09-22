@@ -18,7 +18,7 @@ acme-billing (`~/Repos/acme-billing`) is the invoicing service: an invoice worke
 
 ## Reconciler
 
-- Runs nightly at 02:00 UTC (→ sources/sessions/2026-08-20-reconciler-double-count.md).
+- Runs nightly at 02:00 UTC (→ sources/sessions/2026-08-20-reconciler-double-count.md)
 - Two steps since 2026-08-21, match then report; the report step reads only the match output table (→ sources/sessions/2026-08-20-reconciler-double-count.md).
 - Must not get the invoice worker's retry policy: it is a batch job re-run whole the next night (→ sources/memory/2026-08-22-reconciler-retry-policy.md).
 - A same-day refund was counted as both paid and refunded until 2026-08-20; fixed by filtering on `status` (→ sources/sessions/2026-08-20-reconciler-double-count.md).
@@ -29,6 +29,7 @@ acme-billing (`~/Repos/acme-billing`) is the invoicing service: an invoice worke
 
 ## Open
 
-- Whether the reconciler should run right after the daily deploy instead of 02:00 UTC (→ sources/sessions/2026-09-05-daily-deploys.md).
+- Whether the reconciler should run right after the daily deploy (→ sources/sessions/2026-09-05-daily-deploys.md).
 
 ## Conflicts
+- [open] 2026-09-05: "the reconciler runs nightly at 02:00 UTC" (→ sources/sessions/2026-08-20-reconciler-double-count.md) vs "the nightly reconciler runs at 03:00 UTC, after the backup window" (→ sources/sessions/2026-09-05-daily-deploys.md)

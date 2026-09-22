@@ -112,7 +112,7 @@ Details: [docs/setup.md](docs/setup.md) for the step-by-step · [docs/architectu
 | Op | Trigger | What it does |
 | --- | --- | --- |
 | **[distill](skills/distill/SKILL.md)** | automatic — host `SessionEnd` hook for the session that just ended, `SessionStart` catches anything missed | New or grown transcript → host-specific digest. Tracks byte offsets so resumed sessions are processed incrementally. |
-| **[ingest](skills/ingest/SKILL.md)** | deliberate — `/brain:ingest`; the `SessionStart` hook reminds you when digests or unresolved conflicts are pending | Reads new digests / log entries / human edits, updates entity and topic pages, `index.md`, `log.md`. Records contradictions instead of overwriting, then asks you to decide them. |
+| **[ingest](skills/ingest/SKILL.md)** | deliberate — `/brain:ingest`; the `SessionStart` hook reminds you when digests or unresolved conflicts are pending | Reads new digests / log entries / human edits, updates entity and topic pages, `index.md`, `log.md`. Checks status claims against git before writing them. Records contradictions instead of overwriting, then asks you to decide them. |
 | **[query](skills/query/SKILL.md)** | `/brain:query` | Reads `index.md`, drills into pages, answers with citations back to digests and session ids. Answers worth keeping are filed as new pages. |
 | **[lint](skills/lint/SKILL.md)** | `/brain:lint`, weekly-ish | Contradictions, stale claims, orphans, concepts without pages, drift between the wiki and the agent's built-in memory. |
 | **[clip](skills/clip/SKILL.md)** | `/brain:clip <url>` | Keeps an article or document as a ref — one line from you on why it matters — for the next ingest. |

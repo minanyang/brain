@@ -76,7 +76,10 @@ if [ -n "$vault" ]; then
         | sort -rn | head -20 | cut -f2)
     fi
     if [ -n "$map" ] && printf '%s' "$map" | "$BRAIN_ROOT/scripts/secret-gate.sh" 2>/dev/null; then
-      ctx="${ctx:+$ctx$'\n\n'}Pages in vault '$vault' that sessions in this directory fed over the last 30 days, most cited first. Read one at $vp/<page>.md before stating facts about what it covers; use /brain:query for questions these do not answer.$map"
+      # The instruction is measured, not assumed: told only to read a page first, agents
+      # answered status questions from a page that had gone stale, and "why" questions from
+      # a page's summary of a spec they then never opened. See architecture.md, session map.
+      ctx="${ctx:+$ctx$'\n\n'}Pages in vault '$vault' that sessions in this directory fed over the last 30 days, most cited first, at $vp/<page>.md. They are notes from past sessions, not the system's current state. For whether something is merged, deployed, fixed or still open, check the system itself (git, the code) and use the page only as a lead: a page's status is as of the date it gives. For why something was decided or what happened, open the primary document the page cites (a spec, runbook, release record) and answer from it, not from the page's summary. Use /brain:query for questions these do not answer.$map"
     fi
   fi
 fi

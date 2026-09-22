@@ -10,9 +10,11 @@
 #   5. sources still ingested: false after N days
 #   7. (→ human, …) claims present before the last ingest and absent after it
 #   8. generated files (index.md, brief.md, log.md) that are not valid UTF-8
+#   9. git markers that no longer hold (verify.sh)
 # Rules 4 (names without a page) and 6 (brief vs built-in memory) need judgment; the
 # report ends with the inputs for them.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 vp="${1:?vault path}"; shift || true
 conflict_days=14 volatile_days=30 digest_days=2
 while [ $# -gt 0 ]; do
@@ -106,7 +108,16 @@ for f in index.md brief.md log.md; do
 done
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
-printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
+# 9
+printf '## 9. Status markers that no longer hold\n'
+n=0
+while IFS=$'\t' read -r state loc marker detail; do
+  [ -n "$state" ] || continue
+  printf -- '- %s %s — %s %s\n' "$state" "$loc" "$marker" "$detail"; n=$((n+1))
+done < <("$BRAIN_ROOT/scripts/verify.sh" . 2>/dev/null || true)
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+
+printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
 
 printf '## Inputs for rule 4 (names on ≥ 3 pages with no page of their own)\nPages (%s): ' "$(printf '%s\n' "$pages" | grep -c .)"
 printf '%s\n' "$pages" | sed 's|\.md$||' | tr '\n' ' '; printf '\n\n'

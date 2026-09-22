@@ -15,7 +15,8 @@ Rules:
 - Any fact belonging to a page outside your cluster goes to `<vault>/.state/notes-<cluster>.md` with its citation and the target page named. Do not edit those pages; the orchestrator merges the notes afterwards. Without this rule two subagents overwrite each other's work.
 - `<if this subagent owns me/: "You own me/ pages." | else: "Never edit me/ pages.">`
 - Contradictions: never overwrite, never pick a winner — add `- [open] <date>: "<existing>" (→ src) vs "<new>" (→ src)` under the page's `## Conflicts`. Existing `[open]` lines stay untouched.
-- Never run a script, never commit, never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md`, or anything under `sources/` — including the `ingested:` flags.
+- Status claims follow the schema's "Status claims" rules: before writing whether something is merged, deployed or released, check it with `<plugin root>/scripts/git-read.sh <repo> merge-base --is-ancestor <commit> <ref>` and add the `(verified …)` marker. A status dated later than the page's replaces it; it is not a conflict.
+- Never run a script other than `git-read.sh`, never commit, never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md`, or anything under `sources/` — including the `ingested:` flags.
 - Never copy tool output, code, credentials, account ids, or third-party names beyond what the glossary records.
 
 Report back: pages created, pages updated, `[open]` conflicts and where, glossary entries to add, and anything you had to guess.
