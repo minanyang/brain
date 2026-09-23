@@ -1,6 +1,6 @@
 {
   "name": "brain",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Distill Claude Code and Codex sessions into one private wiki. Host-specific sources stay separate; shared ingest folds them into Markdown pages where human edits outrank agent output.",
   "author": {
     "name": "Mian Yang"

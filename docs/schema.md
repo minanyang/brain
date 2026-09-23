@@ -63,6 +63,7 @@ A status is a claim that stays true only until something moves: merged or not, d
 - **Dated.** Write it as of a date: "As of 2026-09-22, the fix is on `main`." A dated status is still true after the branch moves, as history. An undated one silently becomes false.
 - **Checked where git can settle it,** and marked so it can be checked again: `(verified 2026-09-22: ~/Repos/acme-billing a1b2c3d in origin/main)`, or `not-in`. The fields are fixed: the date, the repository's path, a commit, `in` or `not-in`, and a ref. `scripts/verify.sh` re-checks every marker; ingest prep and lint list the ones that no longer hold. Write what git shows, not what a session believed.
 - **One home.** Each status lives on exactly one page, the page of the thing it is the status of (its project, or its ticket's topic page). Other pages link there with `[[…]]` and do not restate it. A status copied onto five pages is updated on one and stale on four.
+- **No exclusive quantifier without exhaustive evidence.** "the only", "never", "always", "nowhere else" turn a gap in what you read into a claim about the world. Consolidating two sources into one sentence is where this happens: a page that recorded one run and a page that recorded none became "the only recorded run", which was false and was then repeated by every agent that read it. Write what is recorded ("recorded in dev and in staging"), and if exhaustiveness matters, say what was searched.
 - **Newer is an update, not a conflict.** A status dated later than the one on the page replaces it; keep the old one as a one-line dated event only if it matters. `## Conflicts` is for claims about the same moment that disagree.
 
 ## Primary documents
@@ -178,3 +179,4 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 7. Any `(→ human, …)` claim present before an ingest and absent after it.
 8. `index.md`, `brief.md` or `log.md` not valid UTF-8 — a generated file cut mid-character makes grep treat it as binary and skip it silently.
 9. A `(verified …)` marker that git no longer bears out.
+10. An exclusive quantifier ("the only", "no other", "never ran") inside a claim a human or a verification settled — the shape a consolidated contradiction takes when it overstates.

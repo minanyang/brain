@@ -11,6 +11,8 @@
 #   7. (→ human, …) claims present before the last ingest and absent after it
 #   8. generated files (index.md, brief.md, log.md) that are not valid UTF-8
 #   9. git markers that no longer hold (verify.sh)
+#  10. exclusive quantifiers in claims a human or a verification settled — where consolidating
+#      two sources into one sentence turns "we found one case" into "there was one case"
 # Rules 4 (names without a page) and 6 (brief vs built-in memory) need judgment; the
 # report ends with the inputs for them.
 set -euo pipefail
@@ -117,7 +119,17 @@ while IFS=$'\t' read -r state loc marker detail; do
 done < <("$BRAIN_ROOT/scripts/verify.sh" . 2>/dev/null || true)
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
-printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
+# 10
+printf '## 10. Exclusive quantifiers in settled claims\n'
+n=0
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  printf -- '- %s…\n' "$(printf '%s' "$line" | cut -c1-180)"; n=$((n+1))
+done < <(grep -rnE '(the only|The only|no other|No other|nowhere|Nowhere|never (ran|executed|happened|reached))' $wiki_dirs 2>/dev/null \
+           | grep -E 'verified against|\(→ human' | grep -vE '^[^:]+:[0-9]+:- \[(open|resolved)' || true)
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+
+printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9, 10. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
 
 printf '## Inputs for rule 4 (names on ≥ 3 pages with no page of their own)\nPages (%s): ' "$(printf '%s\n' "$pages" | grep -c .)"
 printf '%s\n' "$pages" | sed 's|\.md$||' | tr '\n' ' '; printf '\n\n'
