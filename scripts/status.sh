@@ -76,10 +76,14 @@ if [ -n "$vault" ]; then
         | sort -rn | head -20 | cut -f2)
     fi
     if [ -n "$map" ] && printf '%s' "$map" | "$BRAIN_ROOT/scripts/secret-gate.sh" 2>/dev/null; then
-      # The instruction is measured, not assumed: told only to read a page first, agents
-      # answered status questions from a page that had gone stale, and "why" questions from
-      # a page's summary of a spec they then never opened. See architecture.md, session map.
-      ctx="${ctx:+$ctx$'\n\n'}Pages in vault '$vault' that sessions in this directory fed over the last 30 days, most cited first, at $vp/<page>.md. They are notes from past sessions, not the system's current state. For whether something is merged, deployed, fixed or still open, check the system itself (git, the code) and use the page only as a lead: a page's status is as of the date it gives. For why something was decided or what happened, open the primary document the page cites (a spec, runbook, release record) and answer from it, not from the page's summary. Use /brain:query for questions these do not answer.$map"
+      # The instruction is measured, not assumed, and it has been wrong in both directions.
+      # Told only to read the page first, agents answered status questions from a page that had
+      # gone stale. Told that pages are notes and the system is the truth, they stopped opening
+      # the vault at all (43 reads -> 3 across 60 runs) and then answered "there is no record"
+      # to the one question only the vault could answer. This version says what a page is worth:
+      # its claims carry the date and the check behind them, so they are citable as they stand,
+      # and it names the categories where the vault is the only source. See architecture.md.
+      ctx="${ctx:+$ctx$'\n\n'}Pages in vault '$vault' that sessions in this directory fed over the last 30 days, most cited first, at $vp/<page>.md. Read the page that covers your question and answer from it, citing it as [[dir/page]]. Some things only these pages record: whether something actually ran in an environment, why a choice was made, what happened during an incident, and how work moved across repositories. When your question is one of those, these pages are the primary source — look here before concluding that no record exists. Their status claims carry the date they were established, and most carry the check behind them — (verified 2026-09-22: ~/Repos/acme a1b2c3d in origin/main) — written by ingest after it ran that check against git. Treat a dated, checked claim as established and do not re-derive it. Verify before answering only when the claim has no date or no marker, when its date is older than a release or change you already know happened, or when something in front of you contradicts it — and say which of those applied. For why something was decided or what happened, the page names the primary document (a spec, runbook, release record); open it only when you need detail the page does not carry. Use /brain:query for questions these pages do not answer.$map"
     fi
   fi
 fi
