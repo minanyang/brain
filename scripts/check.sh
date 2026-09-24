@@ -44,7 +44,11 @@ say "ok" "skills"
 
 # Fabricated data only: the pattern repo must never carry anything derived from a real
 # vault. The author's own name in LICENSE and the manifests is intentional and exempt.
-scan() { grep -rniE 'pixel|eatsy|mybrain|miayang0513|mian\.yang|mian yang' \
+# Names were the only thing scanned until a comment quoted a real four-digit ticket id and
+# passed: an identifier is vault-derived even when no name is attached to it. Fabricated
+# ticket ids in examples, templates and fixtures are therefore three digits, and a longer
+# one is assumed to be real.
+scan() { grep -rniE 'pixel|eatsy|mybrain|miayang0513|mian\.yang|mian yang|[A-Z]{2,}-[0-9]{4,}' \
   --exclude-dir=.git --exclude=check.sh --exclude=LICENSE --exclude='*.json' . ; }
 if scan | grep -q .; then
   say "FAIL" "personal or employer name found:"; scan | head -5; fail=1

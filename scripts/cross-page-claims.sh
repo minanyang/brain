@@ -28,7 +28,7 @@ function days(y, m, d, era, yoe, doy, mp) {
   return era * 146097 + yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
 }
 # Polarity belongs to the verb, not to the clause. A clause states more than one thing
-# ("Until TASK-3616 fixed it, the generated client had not been regenerated"), and the
+# ("Until TASK-999 fixed it, the generated client had not been regenerated"), and the
 # negation can follow the verb as easily as precede it ("CI ran no .NET tests"), so the
 # test is a window around the verb rather than the whole clause.
 function polarity(s, verb,   before, after, win) {
