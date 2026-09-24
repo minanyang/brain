@@ -13,6 +13,12 @@
 #   9. git markers that no longer hold (verify.sh)
 #  10. exclusive quantifiers in claims a human or a verification settled — where consolidating
 #      two sources into one sentence turns "we found one case" into "there was one case"
+#  11. candidate cross-page status contradictions for the same ticket — advisory; the skill
+#      judges whether the claims describe the same fact and records unresolved conflicts.
+#  12. a dated claim or a git marker in the lead of a brief: true page (dates inside
+#      citations are provenance and do not count) — the lead is copied verbatim
+#      into brief.md and injected at the start of every session, so a fact with a shelf life
+#      there is the most expensive kind of staleness and the least checked
 # Rules 4 (names without a page) and 6 (brief vs built-in memory) need judgment; the
 # report ends with the inputs for them.
 set -euo pipefail
@@ -129,7 +135,35 @@ done < <(grep -rnE '(the only|The only|no other|No other|nowhere|Nowhere|never (
            | grep -E 'verified against|\(→ human' | grep -vE '^[^:]+:[0-9]+:- \[(open|resolved)' || true)
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
-printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9, 10. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
+printf '## 11. Candidate cross-page claims about the same ticket\n'
+n=0
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  printf -- '- %s\n' "$line"; n=$((n+1))
+done < <("$BRAIN_ROOT/scripts/cross-page-claims.sh" . 2>/dev/null || true)
+[ $n = 0 ] && printf '(none)\n'
+printf '%s advisory candidate(s); excluded from the findings total.\n\n' "$n"
+
+# 12. The lead of a brief page is the only text every session pays for: finish.sh copies the
+# first non-blank, non-heading line into brief.md whole. A lead that narrates dated events
+# instead of stating what is now grows with every ingest and goes stale between them — on the
+# first vault one had reached 1990 bytes with 20 dates, all of which a section below already
+# carried. Length is not the test; a shelf life is.
+printf '## 12. Dated facts in the lead of a brief page\n'
+n=0
+for f in $(grep -l '^brief: true' $pages 2>/dev/null | sort); do
+  lead=$(awk 'BEGIN{fm=0} NR==1 && /^---$/ {fm=1; next} fm==1 && /^---$/ {fm=2; next} fm==2 && !/^[[:space:]]*$/ && !/^#/ {print; exit}' "$f")
+  # A date inside a citation is provenance and does not go stale; only dated claims count.
+  claim=$(printf '%s' "$lead" | sed 's/(→[^)]*)//g')
+  d=$(printf '%s' "$claim" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | grep -c . || true)
+  m=$(printf '%s' "$claim" | grep -oE '\(verified ' | grep -c . || true)
+  [ "$d" = 0 ] && [ "$m" = 0 ] && continue
+  printf -- '- %s — lead is %s bytes with %s date(s) and %s marker(s); move them to a dated section\n' \
+    "${f#./}" "$(printf '%s' "$lead" | wc -c | tr -d ' ')" "$d" "$m"; n=$((n+1))
+done
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+
+printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9, 10, 12. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
 
 printf '## Inputs for rule 4 (names on ≥ 3 pages with no page of their own)\nPages (%s): ' "$(printf '%s\n' "$pages" | grep -c .)"
 printf '%s\n' "$pages" | sed 's|\.md$||' | tr '\n' ' '; printf '\n\n'

@@ -72,6 +72,8 @@ When the authority for a fact is a document in a repository — a spec, a runboo
 
 ## Session digest template
 
+Distillers preserve an explicit correction as a `Correction: <wrong claim> → <correct claim> — <stated evidence or reason>` bullet under `What happened`. The digest distinguishes the user's correction from facts independently verified in the session.
+
 ```markdown
 ---
 session: 7f3a1c2e-0b4d-4e8a-9c1f-2d5e6a7b8c9d
@@ -180,3 +182,5 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 8. `index.md`, `brief.md` or `log.md` not valid UTF-8 — a generated file cut mid-character makes grep treat it as binary and skip it silently.
 9. A `(verified …)` marker that git no longer bears out.
 10. An exclusive quantifier ("the only", "no other", "never ran") inside a claim a human or a verification settled — the shape a consolidated contradiction takes when it overstates.
+11. Candidate status claims on different pages that mention the same ticket, carry dates within three days, and have opposite polarity for the same action. The unit is a clause, not a line, and a clause that carries neither its own ticket nor its own date is not considered; pointer lines containing `status on [[…]]` are excluded. This is an advisory scan (`scripts/cross-page-claims.sh`): candidates are excluded from the lint findings count until an agent confirms a real contradiction; the scan never chooses a winner.
+12. A date or a `(verified …)` marker in the lead paragraph of a `brief: true` page. The lead is copied into `brief.md` verbatim and injected at the start of every session, so a fact with a shelf life belongs in a dated section below, not there.

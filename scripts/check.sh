@@ -76,5 +76,9 @@ if [ -x scripts/test-codex.sh ]; then
   rm -f "$out"
 fi
 
+if [ -x scripts/test-cross-page-claims.sh ]; then
+  scripts/test-cross-page-claims.sh || fail=1
+fi
+
 [ $fail = 0 ] && say "PASS" "all checks" || say "FAIL" "see above"
 exit $fail

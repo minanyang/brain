@@ -72,6 +72,7 @@ You are writing a session digest for a personal knowledge vault. Below is the cl
 
 Rules:
 - Past tense, concrete, terse. Only what the transcript supports; no speculation.
+- Preserve explicit corrections as corrections: state what was wrong, what replaced it, and the evidence or reason given. Do not leave only the final answer when the user corrected an earlier claim; do not treat an unverified correction as independently verified.
 - No tool output, no code blocks longer than 5 lines, no credentials or tokens, no verbatim pasted documents — state the fact, not the artifact.
 - Write in English. Keep file names, commands, and proper nouns as they appear.
 - In "Learned", tag every bullet: [me] for how the user works or prefers things, [person:name] for people or teams, [project:name] for the repository or product (use the repository name), [topic:name] for technical or domain concepts. Write the actual name in the tag, with no angle brackets or placeholders; the names in the template are examples. Omit a section if it has nothing, except "What happened".
@@ -80,7 +81,7 @@ Rules:
 EOF
   if [ -n "$1" ]; then
     cat <<EOF
-The transcript below is one part of a session whose digest already has other sections. Produce ONLY a section headed exactly '$1', containing the sub-sections '### What happened', '### Decisions', '### Learned', '### Open threads' for this part alone.
+The transcript below is one part of a session whose digest already has other sections. Produce ONLY a section headed exactly '$1', containing the sub-sections '### What happened', '### Decisions', '### Learned', '### Open threads' for this part alone. Preserve explicit corrections in '### What happened' as wrong claim → corrected claim, with the stated evidence or reason.
 EOF
   else
     cat <<'T'
@@ -91,6 +92,8 @@ Fill in this template exactly:
 
 ## Decisions
 - <decision> — because <reason>.
+
+Correction rule: when a user explicitly says an earlier claim or action was wrong and gives a replacement, include both in one 'What happened' bullet as 'Correction: <wrong> → <correct> — <evidence or reason>'. Keep the user's correction distinct from facts independently checked in the session.
 
 ## Learned
 - [me] …
@@ -111,7 +114,7 @@ slugify() { # title → slug (keeps unicode letters), empty if nothing usable
 
 digest_trailer() { # repeated after the transcript so the instruction is the most recent thing the model reads
   printf '\nEnd of transcript. Now write the digest as instructed above'
-  if [ -n "$1" ]; then printf ': one section headed exactly %s with ### What happened, ### Decisions, ### Learned, ### Open threads. Do not copy headings from the transcript.\n' "'$1'"
+  if [ -n "$1" ]; then printf ': one section headed exactly %s with ### What happened, ### Decisions, ### Learned, ### Open threads. Preserve explicit corrections as wrong → corrected claim with the stated reason. Do not copy headings from the transcript.\n' "'$1'"
   else printf ': the template starting with "## What happened". Do not copy headings from the transcript.\n'; fi
 }
 

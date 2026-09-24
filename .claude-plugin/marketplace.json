@@ -9,7 +9,7 @@
       "name": "brain",
       "source": "./",
       "description": "Distill Claude Code and Codex sessions into one private wiki. Host-specific sources stay separate; shared ingest folds them into Markdown pages where human edits outrank agent output.",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "category": "productivity"
     }
   ]
