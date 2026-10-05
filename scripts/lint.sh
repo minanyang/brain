@@ -56,7 +56,12 @@ while IFS= read -r line; do
   a=$(age_days "$d")
   if [ "$a" -ge "$conflict_days" ]; then printf -- '- %s — %s days: %s\n' "$f" "$a" "$(printf '%s' "$rest" | cut -c1-140)…"; n=$((n+1)); fi
 done < <(grep -rn '^- \[open\]' $wiki_dirs 2>/dev/null | sed -E 's/^([^:]*):[0-9]+:/\1:/' || true)
-[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n))
+# A conflict whose evidence is gone is not a backlog item. It is counted so it stays
+# visible, and left out of the findings so it does not report every week for ever.
+u=$( { grep -rc '^- \[unresolvable' $wiki_dirs 2>/dev/null || true; } | awk -F: '{t+=$2} END {print t+0}')
+[ "$u" -gt 0 ] && printf '%s conflict(s) marked unresolvable; not counted as findings.\n' "$u"
+printf '\n'
 
 # 2
 printf '## 2. Volatile pages not updated in %s days\n' "$volatile_days"

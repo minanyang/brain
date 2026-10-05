@@ -41,6 +41,7 @@ Read each pending source in full — except one the report marks "already ingest
   | "The newer source is obviously right" | Recency is not authority. Only a source that says the state *changed* after the page's date is an update; one that says the page was wrong goes under `## Conflicts` with it. |
   | "This is a clarification, not a contradiction" | If the existing claim would have to change, it is a contradiction. |
   | "Nobody will care about this small difference" | The human decides that, not you. A conflict costs one line; a silent overwrite costs the claim. |
+  | "The evidence is gone, so this can never be settled" | Say so beside the entry and leave it `[open]`. `[unresolvable]` is a human's mark, like a resolution — an agent that can award it will reach for it whenever checking is expensive. |
   | "Both sources agree there was only one" | Two sources that mention one case do not establish that there was one. Write what is recorded, not "the only" — the schema's rule on exclusive quantifiers. |
   | "The digest says it was merged; no need to check" | A digest records what a session believed at the time. Unchecked present-tense status is the vault's most common wrong claim. |
 
