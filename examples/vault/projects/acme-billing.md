@@ -5,7 +5,8 @@ brief: true
 volatile: false
 locked: false
 updated: 2026-09-05
-sources: [sources/sessions/2026-08-14-invoice-worker-retry.md, sources/sessions/2026-08-20-reconciler-double-count.md, sources/sessions/2026-09-05-daily-deploys.md, sources/memory/2026-08-22-reconciler-retry-policy.md]
+sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/memory/2026-08-22-reconciler-retry-policy.md, sources/sessions/2026-08-20-reconciler-double-count.md, sources/refs/2026-08-15-idempotent-workers.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
+sources_cited: 5
 ---
 
 acme-billing (`~/Repos/acme-billing`) is the invoicing service: an invoice worker that consumes `invoices.pending` and calls the payments API, plus a nightly reconciler that matches invoices to payments. Most of the user's sessions happen here; the reconciler is the job most often paged on.

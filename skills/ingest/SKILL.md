@@ -32,7 +32,7 @@ Read each pending source in full — except one the report marks "already ingest
 
 - Decide the page type — `me`, `person`, `project`, `decision`, `topic`, or a declared type. Never invent a type; an unclassifiable fact goes to `topics/`.
 - Find the page in the index (resolve names through the glossary; one entity, one page — do not create `projects/acme` next to `projects/Acme`). Create the page from `${CLAUDE_PLUGIN_ROOT}/templates/page.md` if it does not exist. File names: lowercase, hyphenated, no dates except in `decisions/`.
-- Rewrite the page, do not append: lead with a two-sentence summary, then headed sections. Cite every non-obvious claim inline using its exact path, normally `(→ sources/sessions/<host>/<file>.md)`. Link related pages with `[[dir/page]]`. Absolute dates only. Update `updated:` and `sources:` in the frontmatter.
+- Rewrite the page, do not append: lead with a two-sentence summary, then headed sections. Cite every non-obvious claim inline using its exact path, normally `(→ sources/sessions/<host>/<file>.md)`. Link related pages with `[[dir/page]]`. Absolute dates only. Update `updated:` in the frontmatter; leave `sources:` and `sources_cited:` alone — `finish.sh` regenerates both from the citations you wrote beside the claims, so a path you cite inline is already recorded and one you add to the frontmatter by hand is discarded.
 - A fact that contradicts an existing claim is **not** applied. Record both under `## Conflicts` as `- [open] <today>: "<existing>" (→ its source) vs "<new>" (→ new source)` and leave the body as it was. Never pick a winner.
 - Pages with `locked: true`: only `## Conflicts` may change.
 

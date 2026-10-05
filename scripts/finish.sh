@@ -5,8 +5,9 @@
 #
 # 1. secret gate on every changed or new wiki page and ref (aborts before anything is marked)
 # 2. ingest only: mark the listed sources ingested: true
-# 3. regenerate index.md, compile brief.md from pages with brief: true
-# 4. append the log.md entry (prefixed with the op), commit; ingest only: move the brain/last-ingest tag
+# 3. regenerate each touched page's `sources:` from its own inline citations
+# 4. regenerate index.md, compile brief.md from pages with brief: true
+# 5. append the log.md entry (prefixed with the op), commit; ingest only: move the brain/last-ingest tag
 # Prints the open conflicts afterwards so the skill can ask the human.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -50,7 +51,13 @@ if [ "$op" = ingest ] && [ -n "$list" ]; then
   done < "$list"
 fi
 
-# 3. index + brief
+# 3. provenance — regenerate `sources:` on the wiki pages this op touched, from their own
+# inline citations. Hand-maintained it drifted on a third of a 180-page vault and nothing
+# read it; generated, it cannot. Only the touched pages, so an op does not rewrite the vault.
+touched=$(printf '%s\n' "$changed" | grep -vE '^(sources/|index\.md$|brief\.md$|log\.md$|CLAUDE\.md$|AGENTS\.md$)' | grep '\.md$' || true)
+[ -n "$touched" ] && "$BRAIN_ROOT/scripts/provenance.sh" "$vp" $touched >/dev/null
+
+# 4. index + brief
 "$BRAIN_ROOT/scripts/index.sh" "$vp"
 {
   for f in $(grep -l '^brief: true' $(find . -maxdepth 2 -name '*.md' ! -path './sources/*' ! -name index.md ! -name brief.md ! -name log.md ! -name CLAUDE.md) 2>/dev/null | sort); do
@@ -61,7 +68,7 @@ fi
 } > brief.md
 "$BRAIN_ROOT/scripts/secret-gate.sh" < brief.md >/dev/null 2>&1 || { echo "secret gate: brief.md" >&2; : > brief.md; }
 
-# 4. log, commit, tag
+# 5. log, commit, tag
 created=$(git ls-files --others --exclude-standard -- . ':(exclude)sources' | grep -c '\.md$' || true)
 updated=$(git diff --name-only -- . ':(exclude)sources' ':(exclude)index.md' ':(exclude)brief.md' ':(exclude)log.md' | grep -c '\.md$' || true)
 wiki_dirs=$(find . -maxdepth 1 -mindepth 1 -type d ! -name sources ! -name '.*')

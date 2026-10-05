@@ -5,7 +5,8 @@ brief: false
 volatile: false
 locked: false
 updated: 2026-09-05
-sources: [sources/sessions/2026-08-14-invoice-worker-retry.md, sources/sessions/2026-09-05-daily-deploys.md]
+sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
+sources_cited: 2
 ---
 
 The platform team owns queues, the CI pipeline and, since 2026-09-01, the deploy calendar for every service including [[projects/acme-billing]]. Anything that needs a new queue or a pipeline change goes to them as a ticket.

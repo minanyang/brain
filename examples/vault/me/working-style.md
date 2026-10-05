@@ -5,7 +5,8 @@ brief: true
 volatile: false
 locked: false
 updated: 2026-09-05
-sources: [sources/sessions/2026-08-14-invoice-worker-retry.md, sources/sessions/2026-08-20-reconciler-double-count.md]
+sources: [sources/sessions/2026-08-20-reconciler-double-count.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
+sources_cited: 2
 ---
 
 Backend engineer on [[projects/acme-billing]] who wants a failing test before every fix and small, single-purpose PRs. Tests against real data shapes, not mocks, and corrects the agent the moment it skips a step rather than after the fact.

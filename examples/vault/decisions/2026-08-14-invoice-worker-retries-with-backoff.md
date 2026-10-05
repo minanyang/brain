@@ -5,7 +5,8 @@ brief: false
 volatile: false
 locked: false
 updated: 2026-08-15
-sources: [sources/sessions/2026-08-14-invoice-worker-retry.md, sources/refs/2026-08-15-idempotent-workers.md]
+sources: [sources/memory/2026-08-22-reconciler-retry-policy.md, sources/refs/2026-08-15-idempotent-workers.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
+sources_cited: 3
 ---
 
 On 2026-08-14 the [[projects/acme-billing]] invoice worker got a bounded retry policy: 3 attempts with exponential backoff (1s, 4s, 16s), then the job goes to a dead-letter queue. Bounded rather than unbounded because an unbounded retry had hidden a real outage for two hours on 2026-08-12.

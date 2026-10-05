@@ -6,6 +6,7 @@ volatile: false
 locked: false
 updated: 2026-08-21
 sources: [sources/sessions/2026-08-20-reconciler-double-count.md]
+sources_cited: 1
 ---
 
 Priya reviews most [[projects/acme-billing]] PRs and pushes for fixtures that look like production data. Suggested splitting the reconciler into match and report steps, which was done on 2026-08-21.

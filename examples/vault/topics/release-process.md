@@ -5,7 +5,8 @@ brief: false
 volatile: true
 locked: false
 updated: 2026-09-05
-sources: [sources/sessions/2026-08-20-reconciler-double-count.md, sources/sessions/2026-09-05-daily-deploys.md]
+sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/sessions/2026-08-20-reconciler-double-count.md]
+sources_cited: 2
 ---
 
 How [[projects/acme-billing]] gets to production. Deploys are gated by the pipeline that [[people/platform-team]] owns, and the schedule changed on 2026-09-01; the schedule itself is written down in the repository (→ ~/Repos/acme-billing/docs/release.md).

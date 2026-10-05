@@ -43,8 +43,13 @@ volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts
 updated: 2026-08-21
 sources: [sources/sessions/claude/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
+sources_cited: 2       # generated; both fields are
 ---
 ```
+
+`sources:` and `sources_cited:` are **generated, never written by hand** — `scripts/provenance.sh` rebuilds them from the page's own inline `(→ sources/…)` citations at the end of every operation, exactly as `index.sh` rebuilds `index.md`, and for the same reason: a generated field cannot drift from the page. Hand-maintained it did, in both directions and silently — over one 180-page vault, 9 % of its entries named a source no claim cited any more, 46 citations were missing from it, and a third of the pages disagreed with their own bodies. Nothing in the pipeline reads either field; the authority for what a page draws on is the citation beside the claim.
+
+The list is capped at the twelve most recent sources (`BRAIN_SOURCES_CAP`) and `sources_cited:` records how many there are, because an uncapped roll-up grows without limit: one page reached 201 entries and spent 17 KB of its 100 KB on them, which is provenance crowding out the content it is provenance for.
 
 ## Page body conventions
 
