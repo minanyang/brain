@@ -57,14 +57,18 @@ else
 fi
 
 if command -v claude >/dev/null; then
-  claude plugin validate . --strict >/dev/null 2>&1 || { say "FAIL" "claude plugin validate: marketplace.json"; fail=1; }
-  # `validate .` reads only marketplace.json, so plugin.json went unchecked until now. Its own
-  # run warns that the repo-root CLAUDE.md is not shipped as plugin context — that file is
-  # maintainer notes and belongs at the root, where Claude Code loads it — so ignore that one
-  # line and fail on every other warning, which is what --strict is for.
-  out=$(claude plugin validate .claude-plugin/plugin.json --strict 2>&1)
-  other=$(printf '%s\n' "$out" | grep '❯' | grep -v 'CLAUDE.md at the plugin root' || true)
-  [ -n "$other" ] && { say "FAIL" "claude plugin validate: plugin.json"; printf '%s\n' "$other"; fail=1; }
+  # Both paths warn that the repo-root CLAUDE.md is not shipped as plugin context — that file is
+  # maintainer notes and belongs at the root, where Claude Code loads it — so ignore that one line
+  # and fail on every other warning, which is what --strict is for. Discarding the output instead
+  # and trusting the exit status, as the marketplace path did, made this whole gate unreachable:
+  # it failed on that one warning on every run since the file was written, so nothing it checks
+  # had ever been enforced.
+  # `validate .` reads only marketplace.json, so plugin.json needs its own run.
+  for target in . .claude-plugin/plugin.json; do
+    out=$(claude plugin validate "$target" --strict 2>&1)
+    other=$(printf '%s\n' "$out" | grep '❯' | grep -v 'CLAUDE.md at the plugin root' || true)
+    [ -n "$other" ] && { say "FAIL" "claude plugin validate: $target"; printf '%s\n' "$other"; fail=1; }
+  done
   say "ok" "plugin validate"
 fi
 
