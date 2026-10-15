@@ -178,7 +178,11 @@ const search = async ($: EngineInterface, query: string): Promise<string> => {
     out.push(`## [[${page}]]  (${matched}/${terms.length} terms)\n${lead(text)}\n${excerpt}`)
   }
   const more = ranked.length > MAX_PAGES ? `\n\n(${ranked.length - MAX_PAGES} further pages matched.)` : ''
-  return `${ranked.length} of the vault's pages matched. Read one in full before stating facts about what it covers.\n\n${out.join('\n\n')}${more}`
+  // "204 of the vault's pages matched" was true and told the reader nothing, because a page
+  // that carries one common term is a match: what is worth saying is how many came back and
+  // that the rest scored lower.
+  const shown = Math.min(ranked.length, MAX_PAGES)
+  return `The ${shown} best of ${ranked.length} pages that mention any of these terms, highest first. Read one in full before stating facts about what it covers.\n\n${out.join('\n\n')}${more}`
 }
 
 // ---------------------------------------------------------------------------------------
@@ -345,7 +349,7 @@ export const register: Register = on => {
           query: {
             type: 'string',
             description:
-              'Distinctive words to look for: a ticket id, a repository, a service, a person, a feature name. Not a sentence — every word is required to be a term, so fewer and rarer words rank better.',
+              'Distinctive words to look for: a ticket id, a repository, a service, a person, a feature name. A rare word decides the ranking and a word most pages carry barely moves it, so a whole question works as a query — its ordinary words simply do no work.',
           },
         },
         required: ['query'],
