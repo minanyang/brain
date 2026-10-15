@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { TestBody } from 'claude-code/testing'
+import { TOOL } from './register'
 
 const PAGE = `---
 title: Invoice rounding
@@ -49,7 +50,7 @@ const vault = (
 // union of callable tool names; the call itself is ordinary.
 const ask = ($: Parameters<TestBody>[0], query: string) =>
   ($.tool.call as (i: { tool: string; input: unknown }) => Promise<{ result?: unknown }>)({
-    tool: 'mcp__brain-query__search',
+    tool: TOOL,
     input: { query },
   })
 

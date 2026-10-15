@@ -246,10 +246,19 @@ const note = async (
   await $.ui.toast('brain: correction recorded for the next ingest')
 }
 
+// The engine exposes a tool registered by a plugin as `mcp__<plugin>__<name>`, so this
+// constant and the `name` handed to $.tool.register are two halves of one fact. The short
+// name is derived from the full one because keeping them as separate literals is what broke:
+// this module began as a dev mod called `brain-query`, and when it moved into the `brain`
+// plugin the prefix changed while the hardcoded matcher did not — the tool registered and no
+// hook answered its calls. The tests shared the same wrong literal, so they passed.
+export const TOOL = 'mcp__brain__search'
+const TOOL_NAME = TOOL.split('__')[2] as string
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.tool.register({
-      name: 'search',
+      name: TOOL_NAME,
       description: DESCRIPTION,
       inputSchema: {
         type: 'object',
@@ -266,7 +275,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('tool.call', { tool: /^mcp__brain-query__search$/ }, async ($, e) => {
+  on('tool.call', { tool: TOOL }, async ($, e) => {
     // A RegExp matcher leaves `e` the union of every tool's event, and a registered
     // tool's arguments ride the variant's string index signature rather than a field
     // the union shares. Both shapes are read because the harness hands them over
