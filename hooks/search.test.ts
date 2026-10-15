@@ -21,6 +21,7 @@ const vault = (
   on: On,
   matches: Record<string, string[]>,
   routed: string | null = '/home/t/acme-billing',
+  pages: string[] = [],
 ): { searched: string[] } => {
   const searched: string[] = []
   on('session.cwd', () => ({ value: '/home/t/Repos/acme-billing' }))
@@ -33,6 +34,8 @@ const vault = (
       return routed === null ? run(1, '') : run(0, `acme-billing\t${routed}\n`)
     }
     searched.push(...e.argv.filter(a => a.startsWith('/')))
+    // The page list, which is what makes a page's own name searchable.
+    if (e.argv[0] === 'find') return run(pages.length === 0 ? 1 : 0, pages.join('\n'))
     const term = e.argv[e.argv.indexOf('-e') + 1] ?? ''
     const files: string[] = matches[term] ?? []
     return run(
@@ -102,4 +105,32 @@ test('a directory no vault covers is told so rather than searched', async ($, on
   const { result } = await ask($, 'reconciler')
 
   expect(result).toContain('No Brain vault covers this directory')
+})
+
+test("a page is found by its own name, which its text does not repeat", async ($, on) => {
+  // The defect this covers: nothing in `topics/version-train.md` writes the words "version
+  // train", so a grep over contents returned only the pages linking to it.
+  vault(on, {}, '/home/t/acme-billing', ['/home/t/acme-billing/topics/invoice-rounding.md'])
+
+  const { result } = await ask($, 'invoice rounding')
+  const text = String(result)
+
+  expect(text).toContain('[[topics/invoice-rounding]]  (2/2 terms)')
+  expect(text).toContain("matched on the page's name")
+})
+
+test('a term in both the name and the text counts once, not twice', async ($, on) => {
+  vault(
+    on,
+    { rounding: ['/home/t/acme-billing/topics/invoice-rounding.md'] },
+    '/home/t/acme-billing',
+    ['/home/t/acme-billing/topics/invoice-rounding.md'],
+  )
+
+  const { result } = await ask($, 'rounding')
+  const text = String(result)
+
+  expect(text).toContain('(1/1 terms)')
+  // The text matched, so the page is quoted rather than labelled as a name-only hit.
+  expect(text).not.toContain("matched on the page's name")
 })

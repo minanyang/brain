@@ -69,22 +69,50 @@ const search = async ($: EngineInterface, query: string): Promise<string> => {
   if (first === undefined) return 'Give at least one search term of two characters or more.'
 
   const dirs = WIKI_DIRS.map(d => `${vault}/${d}`)
+
+  // A page's own name is nowhere in its text, so grep over contents alone answers the most
+  // obvious query with every page but the right one: searching `version-train` returned the
+  // page that links to [[topics/version-train]] and not the page itself. The path is part of
+  // what a reader means by a page's name, so it is searched too.
+  const { stdout: listed } = await $.process.run(
+    ['find', ...dirs, '-type', 'f', '-name', '*.md'],
+    { timeoutMs: 15000 },
+  )
+  const names = new Map<string, string>()
+  for (const file of listed.split('\n').filter(Boolean)) {
+    const slug = file.slice(vault.length + 1).replace(/\.md$/, '').toLowerCase()
+    // `topics/cross-midnight-business-hours` should answer "cross midnight" as well as the
+    // hyphenated form, so both spellings are matched against.
+    names.set(file, `${slug} ${slug.replace(/[-/]/g, ' ')}`)
+  }
+
   // One grep per term, so a page matching more of them ranks higher. A page is a hit
-  // for a term once, however many times the term occurs: frequency measures how long
-  // a page is, not how well it answers.
+  // for a term once, however many times the term occurs and whether it was the text or
+  // the name that carried it: frequency measures how long a page is, not how well it answers.
   const hits = new Map<string, number>()
+  const byName = new Set<string>()
   for (const term of terms) {
     const { stdout } = await $.process.run(
       ['grep', '-ril', '--include=*.md', '-e', term, ...dirs],
       { timeoutMs: 15000 },
     )
-    for (const file of new Set(stdout.split('\n').filter(Boolean))) {
-      hits.set(file, (hits.get(file) ?? 0) + 1)
+    const matched = new Set(stdout.split('\n').filter(Boolean))
+    const t = term.toLowerCase()
+    for (const [file, name] of names) {
+      if (!name.includes(t)) continue
+      if (!matched.has(file)) byName.add(file)
+      matched.add(file)
     }
+    for (const file of matched) hits.set(file, (hits.get(file) ?? 0) + 1)
   }
   if (hits.size === 0) return `No page mentions ${terms.map(t => `"${t}"`).join(' or ')}.`
 
-  const ranked = [...hits.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  // Within the same number of terms, the page *called* X answers "X" better than a page that
+  // merely links to it, so a name hit breaks the tie before the path does.
+  const rank = (f: string) => (byName.has(f) ? 1 : 0)
+  const ranked = [...hits.entries()].sort(
+    (a, b) => b[1] - a[1] || rank(b[0]) - rank(a[0]) || a[0].localeCompare(b[0]),
+  )
   const out: string[] = []
   for (const [file, matched] of ranked.slice(0, MAX_PAGES)) {
     const page = file.slice(vault.length + 1).replace(/\.md$/, '')
@@ -93,10 +121,11 @@ const search = async ($: EngineInterface, query: string): Promise<string> => {
       ['grep', '-in', '-m', '3', '-e', first, file],
       { timeoutMs: 10000 },
     )
-    out.push(
-      `## [[${page}]]  (${matched}/${terms.length} terms)\n${lead(text)}\n` +
-        lines.split('\n').filter(Boolean).map(l => `  ${l.slice(0, 300)}`).join('\n'),
-    )
+    // A page found by its name alone has no line to quote; saying so is what stops the
+    // empty excerpt reading as a page whose body has nothing to do with the question.
+    const excerpt = lines.split('\n').filter(Boolean).map(l => `  ${l.slice(0, 300)}`).join('\n')
+      || (byName.has(file) ? "  (matched on the page's name; its text does not repeat it)" : '')
+    out.push(`## [[${page}]]  (${matched}/${terms.length} terms)\n${lead(text)}\n${excerpt}`)
   }
   const more = ranked.length > MAX_PAGES ? `\n\n(${ranked.length - MAX_PAGES} further pages matched.)` : ''
   return `${ranked.length} of the vault's pages matched. Read one in full before stating facts about what it covers.\n\n${out.join('\n\n')}${more}`
