@@ -36,6 +36,30 @@ equivalent() {
     | awk -F'\t' -v s="$subj" 'index($2, s) == 1 { print $1; exit }' || true
 }
 
+# arrival <commit> <ref> -> prints "<short> <date>" for the merge that carried <commit> onto
+# <ref>, or nothing. Reporting the ref's tip instead, which this did until 2026-10-15, dates a
+# claim to the day someone happened to run the check rather than the day the thing shipped: a
+# commit that reached `develop` on the 1st and `main` in the 10th's release was reported as
+# arriving on whatever `main` pointed at, and twelve pages were rewritten with the wrong date.
+#
+# An ancestry-path walk alone is not enough either, for two reasons. It returns the merge into
+# whichever branch took the commit first: for a commit that went to `develop` nine days before the
+# release, it names that merge rather than the release into `main`. And `--reverse` orders by
+# ancestry, not by date, so its first line is not the earliest. Intersecting the candidates with
+# the ref's own first-parent spine keeps only merges that are on that ref, and because rev-list
+# prints newest first, the last surviving line is the oldest - the arrival.
+arrival() {
+  local c="$1" r="$2" cands f hit
+  cands=$(g log --merges --ancestry-path --format='%H' "$c..$r" 2>/dev/null) || return 1
+  [ -n "$cands" ] || return 1
+  f=$(mktemp "${TMPDIR:-/tmp}/brain-arrival.XXXXXX") || return 1
+  printf '%s\n' "$cands" > "$f"
+  hit=$(g rev-list --first-parent "$r" 2>/dev/null | grep -Fx -f "$f" | tail -1)
+  rm -f "$f"
+  [ -n "$hit" ] || return 1
+  g log -1 --format='%h %cs' "$hit"
+}
+
 while IFS= read -r hit; do
   loc=${hit%%:\(verified*}                       # page:line
   marker=${hit#"$loc":}
@@ -69,7 +93,10 @@ while IFS= read -r hit; do
       in:yes)     state=HOLDS detail="${eq:+as $eq, }$ref at $tip" ;;
       in:no)      state=STALE detail="not in $ref at $tip" ;;
       not-in:no)  state=HOLDS detail="$ref at $tip" ;;
-      not-in:yes) state=STALE detail="now in $ref${eq:+ as $eq} at $tip" ;;
+      not-in:yes) state=STALE
+                  # Where it arrived, not where the ref happens to point today.
+                  at=$(arrival "$commit" "$ref") || at="$tip (ref tip; arrival not found)"
+                  detail="now in $ref${eq:+ as $eq} at $at" ;;
     esac
   fi
   [ -n "$cached" ] || printf '%s\t%s\t%s\n' "$key" "$state" "$detail" >> "$cache"

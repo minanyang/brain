@@ -16,6 +16,7 @@ Rules:
 - `<if this subagent owns me/: "You own me/ pages." | else: "Never edit me/ pages.">`
 - Contradictions: never overwrite, never pick a winner — add `- [open] <date>: "<existing>" (→ src) vs "<new>" (→ src)` under the page's `## Conflicts`. Existing `[open]` lines stay untouched.
 - Status claims follow the schema's "Status claims" rules: before writing whether something is merged, deployed or released, check it with `<plugin root>/scripts/git-read.sh <repo> merge-base --is-ancestor <commit> <ref>` and add the `(verified …)` marker. A status dated later than the page's replaces it; it is not a conflict.
+- While you are in a page, check its other status claims for a missing marker: a present-tense status with no `(verified …)` on it ("is on `staging`", "has not reached production") is invisible to `verify.sh` and stays wrong indefinitely. Check it and add a dated marker. No lint rule does this — it needs the page's sense, not a pattern.
 - Never run a script other than `git-read.sh`, never commit, never touch `index.md`, `brief.md`, `log.md`, `CLAUDE.md`, or anything under `sources/` — including the `ingested:` flags.
 - Never copy tool output, code, credentials, account ids, or third-party names beyond what the glossary records.
 
