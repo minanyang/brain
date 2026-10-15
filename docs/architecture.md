@@ -264,6 +264,28 @@ synthesis as a page: the tool is what gets read when nobody asked for a vault lo
 description says to read a page in full before stating facts about it, because the measured
 failure on "why was this decided" questions was an agent answering from a page's summary.
 
+The session-start list is not a substitute for that tool, and a 120-run benchmark on
+2026-10-15 shows why. Five of its six questions the vault arm answered well (mean 2.14
+against 0.42, and one confidently wrong answer against nineteen); the sixth it answered no
+better than the arm with no vault at all, because the one page holding the answer was not in
+the injected list. The list is the top 20 pages by how many of this directory's digests cite
+them, so a page that answers exactly one kind of question loses to pages many sessions feed,
+and the arm fell back to grepping the repository — the failure the vault exists to prevent.
+Raising the cap dilutes every other turn for one question's benefit, so the list keeps its
+ranking and says what it is: the closing sentence names the search tool, where it used to name
+`/brain:query`, a skill that is invoked in no measured session.
+
+That sentence was then measured on the two questions it was written for, eight runs against the
+same vault, and it works on one of them. Where the repository holds nothing on the subject, the
+agent now reaches the page — in two of four runs, with an answer carrying both environments'
+timestamps where every earlier run had answered "no record" — for about a tenth more cost and one
+more tool call. Where the repository holds a plausible partial answer, it still does not: all
+four runs read the workspace's own notes, answered from them, and never looked, because an agent
+that has found something does not reach the clause about finding nothing. That half is open, and
+it is the half the registered tool is better placed to close than any sentence, since the tool is
+in the list every turn rather than in a paragraph read once.
+
+
 ---
 
 modes, a claim contradicted later in conversation:**
