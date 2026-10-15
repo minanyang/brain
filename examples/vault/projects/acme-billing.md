@@ -4,7 +4,9 @@ type: project
 brief: true
 volatile: false
 locked: false
+deprecated: false
 updated: 2026-09-05
+# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/memory/2026-08-22-reconciler-retry-policy.md, sources/sessions/2026-08-20-reconciler-double-count.md, sources/refs/2026-08-15-idempotent-workers.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
 sources_cited: 5
 ---
@@ -28,9 +30,14 @@ acme-billing (`~/Repos/acme-billing`) is the invoicing service: an invoice worke
 
 - [[people/priya-nair]] reviews most PRs. [[people/platform-team]] owns the queues and the deploy calendar. How the user works on it: [[me/working-style]].
 
-## Open
+## Open threads
 
-- Whether the reconciler should run right after the daily deploy (→ sources/sessions/2026-09-05-daily-deploys.md).
+- [thread 2026-09-05] whether the reconciler should run right after the daily deploy — waiting on [[people/platform-team]], who own the deploy calendar (→ sources/sessions/2026-09-05-daily-deploys.md).
+- [closed 2026-09-05] whether the `invoices.dead` queue had been created — [[people/platform-team]] created it on 2026-08-27 and it had taken zero messages by 2026-09-05 (→ sources/sessions/2026-09-05-daily-deploys.md).
+
+## Rejected
+
+- [rejected 2026-08-22] giving the nightly reconciler the invoice worker's retry policy — the user turned it down when the agent proposed copying it across: the reconciler is a batch job re-run whole the next night, so per-row retries with backoff would only make a bad night slower (→ sources/memory/2026-08-22-reconciler-retry-policy.md).
 
 ## Conflicts
 - [open] 2026-09-05: "the reconciler runs nightly at 02:00 UTC" (→ sources/sessions/2026-08-20-reconciler-double-count.md) vs "the nightly reconciler runs at 03:00 UTC, after the backup window" (→ sources/sessions/2026-09-05-daily-deploys.md)

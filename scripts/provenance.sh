@@ -52,13 +52,17 @@ while IFS= read -r p; do
     | awk -F/ '{ print $NF "\t" $0 }' | sort -r | cut -f2- \
     | head -n "$CAP" | paste -sd, - | sed 's/,/, /g' || true)
 
+  # The comment above the two fields is how a reader of the page tells generated content from
+  # the rest of it (docs/schema.md, "Generated, checked, reported"): without it an agent took
+  # the roll-up for something it could correct, and the correction was overwritten here.
   tmp="$p.provenance.$$"
-  awk -v ns="sources: [${keep}]" -v tot="$total" '
+  awk -v ns="sources: [${keep}]" -v tot="$total" -v gen="# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded" '
     BEGIN { c = 0 }
     /^---$/ { c++; print; next }
     c == 1 {
-      if ($0 ~ /^sources:/)       { print ns; print "sources_cited: " tot; next }
+      if ($0 ~ /^sources:/)       { print gen; print ns; print "sources_cited: " tot; next }
       if ($0 ~ /^sources_cited:/) { next }   # rewritten beside sources:, never twice
+      if ($0 ~ /^# generated/)    { next }   # ditto: reprinted above sources:, not kept here
     }
     { print }
   ' "$p" > "$tmp"

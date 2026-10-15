@@ -1,1 +1,5 @@
 .DS_Store
+# Written by the engine, not by hand, every time it loads this plugin from the working tree
+# (`claude --plugin-dir ~/Repos/brain`): this build's hooks API as ~20k lines of generated
+# .d.ts, which goes stale on the next release.
+.claude-plugin/types/

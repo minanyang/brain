@@ -66,7 +66,14 @@ if command -v claude >/dev/null; then
   # `validate .` reads only marketplace.json, so plugin.json needs its own run.
   for target in . .claude-plugin/plugin.json; do
     out=$(claude plugin validate "$target" --strict 2>&1)
-    other=$(printf '%s\n' "$out" | grep '❯' | grep -v 'CLAUDE.md at the plugin root' || true)
+    # The validator bullets two different things with ❯: its warnings, and a hooks module's own
+    # inventory (what it hooks, what it calls, which gating hooks have a .catch). Only the first
+    # kind is a finding, and an inventory line always names the module file after the bullet.
+    # Reading the inventory as warnings failed every repository that ships a module, which was
+    # latent until this one did.
+    other=$(printf '%s\n' "$out" | grep '❯' \
+      | grep -v 'CLAUDE.md at the plugin root' \
+      | grep -vE '❯ \./[^ ]+\.(ts|tsx|js|mjs|cjs|mts|cts) ' || true)
     [ -n "$other" ] && { say "FAIL" "claude plugin validate: $target"; printf '%s\n' "$other"; fail=1; }
   done
   say "ok" "plugin validate"

@@ -4,7 +4,9 @@ type: person
 brief: false
 volatile: false
 locked: false
+deprecated: false
 updated: 2026-08-21
+# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/sessions/2026-08-20-reconciler-double-count.md]
 sources_cited: 1
 ---

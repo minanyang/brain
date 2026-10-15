@@ -1,5 +1,6 @@
 {
-  "description": "Brain: distill the session that just ended, catch up on missed ones at startup, ingest a backlog that has crossed its threshold, and remind about pending digests.",
+  "description": "Brain: distill the session that just ended, catch up on missed ones at startup, ingest a backlog that has crossed its threshold, remind about pending digests, register the vault search tool, and record a correction where the user makes it.",
+  "modules": ["./register.ts"],
   "hooks": {
     "SessionEnd": [
       {

@@ -41,15 +41,29 @@ type: me | person | project | decision | topic   # or a type the vault declares
 brief: false          # true → included when brief.md is compiled
 volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts
+deprecated: false     # or "<date> — superseded by [[dir/page]]": kept for the record, read as history
 updated: 2026-08-21
+# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/sessions/claude/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
-sources_cited: 2       # generated; both fields are
+sources_cited: 2
 ---
 ```
 
 `sources:` and `sources_cited:` are **generated, never written by hand** — `scripts/provenance.sh` rebuilds them from the page's own inline `(→ sources/…)` citations at the end of every operation, exactly as `index.sh` rebuilds `index.md`, and for the same reason: a generated field cannot drift from the page. Hand-maintained it did, in both directions and silently — over one 180-page vault, 9 % of its entries named a source no claim cited any more, 46 citations were missing from it, and a third of the pages disagreed with their own bodies. Nothing in the pipeline reads either field; the authority for what a page draws on is the citation beside the claim.
 
 The list is capped at the twelve most recent sources (`BRAIN_SOURCES_CAP`) and `sources_cited:` records how many there are, because an uncapped roll-up grows without limit: one page reached 201 entries and spent 17 KB of its 100 KB on them, which is provenance crowding out the content it is provenance for.
+
+## Generated, checked, reported
+
+Three kinds of content sit side by side in a vault and are worth different amounts, so each says on the page itself which it is. Without the markers an agent treats all three alike: it rewrote a generated roll-up by hand (silently overwritten at the next operation) and quoted a one-session claim as if git had settled it.
+
+| Kind | How it is marked | What it is worth |
+| --- | --- | --- |
+| **Generated** | the `# generated` comment above `sources:`/`sources_cited:`, and the `<!-- generated … -->` first line of `index.md`, `brief.md` and `log.md` | rebuilt from the pages at the end of every operation. Editing it changes nothing and the edit is lost without a trace, so change the page it is derived from instead. |
+| **Checked** | a `(verified <date>: …)` marker on the claim | something outside the vault was read and said this on that date. `scripts/verify.sh` re-checks every marker, so a checked claim that stops holding becomes a finding rather than quietly going wrong. |
+| **Reported** | a `(→ source)` citation and nothing else — the bulk of every page | what one session, article or human said. It may be true and unchecked, or it may be what somebody believed. Cite it as the report it is; do not restate it as established, and check it before acting on it where git or a document can settle it. |
+
+A claim with no citation at all is none of the three and does not belong on a page.
 
 ## Page body conventions
 
@@ -59,6 +73,8 @@ The list is capped at the twelve most recent sources (`BRAIN_SOURCES_CAP`) and `
 - Link other pages with `[[directory/page]]`. Link liberally; a link to a page that does not exist yet is a TODO for ingest, not an error.
 - Dates are absolute (`2026-08-21`), never relative ("last week").
 - Contradictions live under `## Conflicts`, one line each: `- [open] 2026-08-21: "<existing claim>" (→ its source) vs "<new claim>" (→ new source)`. The agent never picks a winner. When a human decides, the winning claim goes into the body cited `(→ human, date)` and the entry becomes `- [resolved 2026-08-22] …`. The fixed prefix is what the reminder and lint grep for. A third prefix, `- [unresolvable <date>] … — <why>`, is for a conflict whose evidence is gone: the log was rotated, the console retention passed, the branch was deleted. Lint stops counting it as a finding and reports how many there are, because a question that cannot be settled is not a backlog item and reporting it every week teaches people to ignore the report. The bar is high and the reason is required — "nobody has checked yet" is `[open]`, and only a human may mark a conflict unresolvable, for the same reason only a human may resolve one.
+- Unfinished business lives under `## Open threads`, one line each, prefixed and dated like a conflict: `- [thread 2026-08-21] <what is unfinished, or the question> — waiting on <the thing that would close it> (→ its source)`. A thread is closed by that thing happening, which is a later source saying so, and the only moment anyone is looking at both is the ingest that files that source: it writes the answer into the body as an ordinary dated claim and re-prefixes the entry `- [closed 2026-09-05] <the thread> — <what closed it> (→ the source that closed it)`. The closed entry stays where it is, exactly as a `[resolved]` conflict does, because it is the evidence that the question was asked and answered and a page that drops it invites the same question again. Never delete an open thread to tidy a page: an entry nobody can close is still true, and it is the `[closed …]` prefix, not deletion, that takes one out of the count lint reports (rule 13).
+- An idea that was proposed and rejected lives under `## Rejected`, on the page of the thing it was about: `- [rejected 2026-09-05] <what was proposed> — <what killed it>: <the evidence> (→ its source)`. All four parts are required, the evidence most of all: a rejection without its reason is re-litigated by the next agent that has the same idea, which is the whole failure this section exists for. Check this section before proposing anything that looks like new work on a page — `grep -rn '^- \[rejected' <vault>` finds every one in the vault, since the idea may have been killed on a neighbouring page. A rejection with consequences beyond the one session is promoted to a `decisions/` page like any other decision, and the entry becomes the pointer to it. Only a human overturns a rejection; new evidence that argues against one goes under `## Conflicts` with it, where the entry already names what the old evidence was.
 - Pages are rewritten, not appended to. History is in git, not in the page.
 
 ## Status claims
@@ -70,6 +86,21 @@ A status is a claim that stays true only until something moves: merged or not, d
 - **One home.** Each status lives on exactly one page, the page of the thing it is the status of (its project, or its ticket's topic page). Other pages link there with `[[…]]` and do not restate it. A status copied onto five pages is updated on one and stale on four.
 - **No exclusive quantifier without exhaustive evidence.** "the only", "never", "always", "nowhere else" turn a gap in what you read into a claim about the world. Consolidating two sources into one sentence is where this happens: a page that recorded one run and a page that recorded none became "the only recorded run", which was false and was then repeated by every agent that read it. Write what is recorded ("recorded in dev and in staging"), and if exhaustiveness matters, say what was searched.
 - **Newer is an update, not a conflict.** A status dated later than the one on the page replaces it; keep the old one as a one-line dated event only if it matters. `## Conflicts` is for claims about the same moment that disagree.
+
+## Deprecated pages and claims
+
+A page or a claim that has been superseded but is still worth keeping has had two bad options: delete it and lose the record of a thing the user will still meet in the wild, or leave it reading as current. `deprecated:` is the third.
+
+```yaml
+deprecated: 2026-09-05 — superseded by [[decisions/2026-08-14-invoice-worker-retries-with-backoff]]
+```
+
+- The value is required to carry **the date and what superseded it** — a page link, or, when nothing replaced it, what ended it and why. A bare `deprecated: true` says a page is history without saying where the reader should be instead, which is the state it was deprecated to escape. `false` (or the field's absence) is a live page.
+- **Nothing is filed onto a deprecated page.** Ingest sends the fact to the successor, and rewrites the deprecated page only to correct a wrong claim or append to its `## Conflicts`; filing new facts onto it undoes the deprecation without anyone deciding to.
+- **Deprecating replaces deleting.** Point the inbound `[[links]]` at the successor and leave the page. Its inbound links then go, which is the expected end state and the reason lint rule 3 skips it — a deliberate pointer back at it from the successor, for the reader who still meets the old thing, is the exception; rule 2 skips it too, since a deprecated page is not meant to be updated.
+- **Injection and the session map.** `index.md` carries `(deprecated …)` in front of the page's summary, so the session map — which quotes those lines — sends the reader to the successor. A deprecated page is never compiled into `brief.md`, whatever its `brief:` says, because the brief is the one text every session pays for and history there is pure cost.
+- **A single claim** is deprecated in place when it reads as current and someone will still meet the old thing: `The replay script is run by hand after a dead-letter (deprecated 2026-09-05: superseded by the retry policy) (→ its source)`. Where no one will meet it again, fold it into a one-line dated event instead — that is the ordinary case, and a page full of deprecation markers is a page that needs splitting.
+- Lint reports a page deprecated more than 180 days ago (rule 14), because the point of keeping it is that someone still meets the old thing, and after half a year that is a claim worth re-making deliberately: fold what is still wanted into the successor and delete the page, which git keeps and `restore-page.sh` brings back.
 
 ## Primary documents
 
@@ -104,7 +135,7 @@ Facts worth keeping, each tagged:
 - [topic:git-tags] …
 
 ## Open threads
-- Things left unfinished or explicitly deferred.
+- Things left unfinished or explicitly deferred. Ingest turns each into a `- [thread <date>]` entry on the page of the thing it waits on, or closes one already there.
 
 ## Continued (YYYY-MM-DD)
 Appended when a session is resumed after it was first distilled. Same sections. Appending also resets `ingested` to `false`, so the new part is integrated by the next ingest; ingest prep reports the line the new part starts at, so the earlier part is not read again, and the pending reminder dates the file from its last append.
@@ -150,6 +181,7 @@ Written by `scripts/memory-sync.sh` whenever the memory file's content changes; 
 ## index.md
 
 ```markdown
+<!-- generated by brain (scripts/index.sh) — edits are overwritten; change the page -->
 # Index
 
 ## me
@@ -157,29 +189,31 @@ Written by `scripts/memory-sync.sh` whenever the memory file's content changes; 
 
 ## people
 - [[people/platform-team]] — owns CI and the deploy pipeline; contact: …
+- [[people/release-captain]] — (deprecated 2026-09-05 — superseded by [[people/platform-team]]) who used to own the deploy calendar.
 ```
 
-One line per page — the page's first sentence — grouped by directory, alphabetical within a group. Generated from the pages by `scripts/index.sh` at the end of every ingest; never written by hand or by the agent, so it cannot drift from the pages.
+One line per page — the page's first sentence — grouped by directory, alphabetical within a group, with `(deprecated …)` in front of the summary of a page whose frontmatter carries it. Generated from the pages by `scripts/index.sh` at the end of every ingest; the first line says so, because the file a reader meets first is the one most likely to be edited by hand, and never written by hand or by the agent, so it cannot drift from the pages.
 
 ## log.md
 
 ```markdown
+<!-- generated by brain (scripts/finish.sh) — append-only; edits are not read back -->
 ## [2026-08-21] distill | 3 sessions (acme-billing ×2, home ×1)
 ## [2026-08-21] ingest | 3 digests → 7 pages updated, 2 created, 1 conflict on topics/release-process
 ## [2026-08-21] query | "why do we not run ingest automatically?" → filed decisions/deliberate-ingest
 ```
 
-Append-only. Prefix format is fixed so it is greppable.
+Append-only, by `finish.sh` alone. Prefix format is fixed so it is greppable.
 
 ## brief.md
 
-Compiled from pages with `brief: true`: the page title, its opening summary, and a link. Generated at the end of every ingest. Target ≤ 30 lines, so keep the `brief: true` set small. Never hand-edited — change the source page instead.
+Compiled from pages with `brief: true`: the page title, its opening summary, and a link, under the same `<!-- generated … -->` first line. Generated at the end of every ingest, and a page carrying `deprecated:` is left out of it whatever its `brief:` says. Target ≤ 30 lines, so keep the `brief: true` set small. Never hand-edited — change the source page instead.
 
 ## Lint rules
 
 1. Unresolved `## Conflicts` older than 14 days.
-2. `volatile: true` pages not updated in 30 days.
-3. Pages with no inbound links.
+2. `volatile: true` pages not updated in 30 days. Pages carrying `deprecated:` are skipped: they are not meant to be updated.
+3. Pages with no inbound links. Pages carrying `deprecated:` are skipped: having their links moved to the successor is what deprecating one does.
 4. Names appearing on ≥ 3 pages with no page of their own.
 5. Digests with `ingested: false` older than 2 days.
 6. `brief.md` claims that contradict `~/.claude/projects/*/memory/*.md`.
@@ -189,3 +223,5 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 10. An exclusive quantifier ("the only", "no other", "never ran") inside a claim a human or a verification settled — the shape a consolidated contradiction takes when it overstates.
 11. Candidate status claims on different pages that mention the same ticket, carry dates within three days, and have opposite polarity for the same action. The unit is a clause, not a line, and a clause that carries neither its own ticket nor its own date is not considered; pointer lines containing `status on [[…]]` are excluded. This is an advisory scan (`scripts/cross-page-claims.sh`): candidates are excluded from the lint findings count until an agent confirms a real contradiction; the scan never chooses a winner.
 12. A date or a `(verified …)` marker in the lead paragraph of a `brief: true` page. The lead is copied into `brief.md` verbatim and injected at the start of every session, so a fact with a shelf life belongs in a dated section below, not there.
+13. A page whose `## Open threads` carries more than 12 entries that are not `[closed …]`. The finding is the page, not any one thread: which thread the body has already answered needs the page's sense, and a scan for it was measured on a real vault at 30 hits for 5 defects, the same shape as four rules abandoned before it. A count is exact and bounded — one line per page, eight on a 208-page vault whose 139 thread sections held 684 entries — and the action is a human-or-agent sweep of that one section with the page in front of it.
+14. A page deprecated more than 180 days ago, or a `deprecated:` value with no date or nothing after it. The first is a page to fold into its successor and delete; the second is a page that says it is history without saying where to go instead.

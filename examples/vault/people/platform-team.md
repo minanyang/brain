@@ -4,7 +4,9 @@ type: person
 brief: false
 volatile: false
 locked: false
+deprecated: false
 updated: 2026-09-05
+# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
 sources_cited: 2
 ---

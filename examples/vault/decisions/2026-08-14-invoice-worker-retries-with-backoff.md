@@ -4,7 +4,9 @@ type: decision
 brief: false
 volatile: false
 locked: false
+deprecated: false
 updated: 2026-08-15
+# generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/memory/2026-08-22-reconciler-retry-policy.md, sources/refs/2026-08-15-idempotent-workers.md, sources/sessions/2026-08-14-invoice-worker-retry.md]
 sources_cited: 3
 ---

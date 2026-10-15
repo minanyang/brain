@@ -159,6 +159,67 @@ Trimming an overgrown page means deleting the original, and nobody does that wil
 
 A wrong claim is rarely written once, and that is what makes it expensive. On 2026-09-23 a claim about a workflow was corrected on the page that had produced a wrong answer; the same sentence stood on two other pages, and the next measurement produced the same wrong answer from one of them. Which page an agent reads depends on how the question was asked, so a correction is not applied until every restatement is. `restated.sh` lists them from the claim's distinctive words, and ingest runs it whenever a decision makes a claim wrong. Entries under `## Conflicts` are quotations of what was said and are listed apart, because correcting those would rewrite the record.
 
+An idea that was considered and rejected leaves no trace of having been considered, so it comes back.
+This repository's own history holds three: a thirteenth lint rule prototyped and abandoned on
+measurement, a rewrite in a faster language declined in favour of reviewing the algorithm, and
+belief-strength scoring and cosine-similarity contradiction detection declined after comparable
+projects were read. Each was written down by hand, in prose, in a different shape, which is the same
+as not being written down: nothing can be read before proposing. So a rejection now has one shape and
+one home — `- [rejected <date>] <proposal> — <what killed it>: <evidence> (→ source)` under `##
+Rejected` on the page of the thing it was about, the same fixed-prefix, one-home treatment a conflict
+and a status already get. The evidence is required because a rejection without its reason is
+re-litigated by the next agent that has the idea and cannot see what killed it; `grep -rn '^- \[rejected'`
+over the vault is the check before proposing, since the idea may have been killed on a neighbouring
+page, and it is the clause the session map now carries for sessions that never open the vault. Only a
+human overturns one: new evidence against a rejection goes under `## Conflicts` beside it, where the
+old evidence is already quoted.
+
+A page or a claim that has been superseded but is still worth keeping had two options and both were
+bad: delete it and lose the record of something the user will still meet in old tickets and logs, or
+leave it reading as current. `deprecated: <date> — superseded by [[dir/page]]` is the third, and the
+value is required to carry both parts, because `deprecated: true` leaves the reader exactly where
+deprecation was meant to get them out of — told this is history, not told where to go instead. What
+reads the field is the generated layer: `index.sh` puts `(deprecated …)` in front of the page's
+summary, so the session map, which quotes those lines, sends the reader to the successor, and
+`finish.sh` leaves the page out of `brief.md` whatever its `brief:` says, since the brief is the one
+text every session pays for. Ingest files nothing new onto a deprecated page — the fact goes to the
+successor, because filing onto the old page undoes a deprecation nobody then re-decides — and
+deprecating replaces deleting, with the inbound links moved to the successor. That makes a deprecated
+page orphaned and un-updated on purpose, so lint rules 3 and 2 skip it, and rule 14 reports it after
+180 days: keeping it is a claim that someone still meets the old thing, and after half a year that is
+worth making again deliberately rather than by default.
+
+Open threads accumulate and nothing removes them. A thread is closed by the thing it was waiting for
+happening, which arrives as a later source, and the only moment anyone holds both the thread and that
+source is the ingest that files it; left for later, nobody goes back. Measured on a real vault: 684
+thread entries across 139 pages of 208, two of them carrying no date — the practice was already to
+write a dated line with a citation, so what was missing was not discipline but an exit. A thread is
+therefore prefixed like a conflict, `- [thread <date>] … — waiting on <the thing>`, and closed in
+place as `- [closed <date>] … — <what closed it> (→ the source that closed it)` with the answer written
+into the body as an ordinary dated claim. The closed entry stays, exactly as a `[resolved]` conflict
+does, because it is the evidence that the question was asked and answered, and a page that drops it
+invites the question again; deleting a thread to tidy a page is the one move the ingest skill names as
+forbidden here. What lint can say about a thread is only how many there are. Picking out the finished
+one was prototyped — pair each thread's ticket id with a later-dated line elsewhere on the same page —
+and fired 30 times for 5 real defects, because whether the later line answers the thread needs the
+page's sense, which is how the four rules of 2026-10-13 died as well. So rule 13 counts instead: a
+page whose list exceeds twelve entries, 8 findings on that vault, one line per page, and the action is
+a sweep of that one section with the page open — the same shape as asking ingest to check the status
+claims of a page it is already reading, which found eight real defects where a scan found none.
+
+Three kinds of content sit side by side on a page and are worth different amounts. `index.md`,
+`brief.md`, `log.md` and the `sources:`/`sources_cited:` fields are generated: rewriting them by hand
+changes nothing and the edit is lost at the next operation. Claims carrying `(verified <date>: …)`
+were checked against git and are re-checked by `verify.sh`. Everything else is a report of what one
+session, article or human said. Nothing on the page said which was which, so an agent corrected a
+generated roll-up by hand — the drift that made `sources:` generated in the first place was found the
+same way — and quoted one-session claims as though git had settled them. Each kind now says so where
+it is read: the generated files carry a `<!-- generated … -->` first line, written by the scripts that
+generate them, and the two generated frontmatter fields carry a `# generated` comment that
+`provenance.sh` reprints above them; a claim with a citation and no marker is a report, and the schema
+says to cite it as one rather than restate it as established. No marker was invented for the third
+kind, because it is the bulk of every page and a marker on every claim is a marker on none.
+
 Ingest still detects contradictions only while rewriting the same page, so a ticket whose status is copied onto a project page and a topic page can drift. Lint runs `cross-page-claims.sh` for that: an advisory scan that pairs two pages making opposite dated claims about the same ticket and the same action within three days, excluding `status on [[…]]` pointers. The lint skill reads both pages and their cited sources before deciding whether they conflict; candidates stay out of the findings count until confirmed, and the scan never chooses a winner.
 
 Its unit is a clause, not a line, because the schema's own conventions defeat a line-level scan. A page states one fact per line with its citations attached, so on the first vault the median line carrying a ticket id is 339 characters and often reports two actions at once. Comparing whole lines produced 717 candidates and no contradictions; skipping the long ones to quieten that left 15 of 504 ticket lines in scope, which is not a check. Splitting on clause boundaries and registering one entry per action verb keeps both the long lines and the per-action polarity: 80 entries over 44 tickets, no candidates on a vault whose contradictions had already been settled, and all three planted ones found.
@@ -180,6 +241,59 @@ Read `index.md` → pick pages → read them → answer with citations (`[[page]
 ### clip
 
 `/brain:clip <url or pasted text>` fetches the content, asks the one question that matters — *why should the vault keep this?* — and writes `sources/refs/<date>-<slug>.md` through `scripts/ref.sh` (slug, frontmatter from `templates/ref.md`, secret gate). Nothing is summarized or filed into the wiki at this point; the ref is `ingested: false` and the next ingest integrates it like a digest, citing it as `(→ sources/refs/…)`.
+
+### search
+
+`/brain:query` is a skill, and a skill has to be triggered. Measured on 2026-10-15 across 40
+real interactive sessions since 2026-10-08: 37 received the injected brief, a vault page was
+opened in 4 of those 37, and the skill was invoked in 0 of the 40. In each of the four
+sessions that did want vault content the agent reached for `sed -n` or `cat` on a page path
+instead — it knew the vault was there and went round the one operation built to read it. So
+the read side no longer waits to be triggered. `hooks/register.ts` is a function-hooks module
+that registers a full-text search over the vault's five wiki directories as a tool, on
+`session.start`, which puts it in the tool list every turn: one `grep -ril` per term so a page
+matching more terms ranks higher, at most 8 pages back, each as `[[directory/page]]` with its
+lead paragraph and three matching lines. Frequency is not used for ranking, because it
+measures how long a page is and not how well it answers. The tool resolves which vault to
+search by running `scripts/resolve-vault.sh` rather than reimplementing routing in
+TypeScript — a second copy of `lib.sh`'s `include`-glob precedence would drift, and a machine
+with two vaults would otherwise be searched in whichever order the config happened to list
+them. The tool reads; it never writes, so `finish.sh` is still the only write path. It does
+not replace `/brain:query`, which also cites the digest and the session id and files a
+synthesis as a page: the tool is what gets read when nobody asked for a vault lookup, and its
+description says to read a page in full before stating facts about it, because the measured
+failure on "why was this decided" questions was an agent answering from a page's summary.
+
+---
+
+modes, a claim contradicted later in conversation:**
+
+### correction capture
+
+A claim the user contradicts in conversation used to survive it. Distillation preserves an
+explicit correction as a `Correction: <wrong> → <correct>` bullet in the digest's `What
+happened`, but that is one part of the defence and it depends on the correction
+surviving summarization. A second hook in the same module records it where it happens: on
+`prompt.submit`, a prompt that passes a local gate is classified with `$.model.classify`
+together with the claim it answers — a bare contradiction is only a correction against what it
+contradicts — and a prompt classified as a correction is written to `<vault>/.state/corrections/<date>-<time>-<session>.md`
+with the date, the user's words verbatim and what the agent had just said. The file decides
+nothing — it names no page, resolves no conflict and edits nothing, because `/brain:ingest` is
+the only thing that files a fact and `finish.sh` the only write path into a vault — and it says
+so in its own text, along with the instruction to run `restated.sh` before rewriting a page,
+since a wrong claim is rarely written once. The user's words belong in the class ingest step 2
+already treats as outranking every source. The classifier's labels are written out in the
+module rather than tuned out of sight, and the second label exists for the expensive false
+positive: "no, do the other one first" is an instruction about work, not a claim about the
+world, and the pipeline must never be handed one as a correction. The hook runs on every
+prompt, so the model call is gated locally first — at most 300 characters, the session idle,
+and a last message that is the assistant's, at least 40 characters and not a question. That
+costs recall in two places worth naming: a long correction that sets out what is actually true
+with its evidence is missed, which is the most valuable kind, and so is a correction of
+something said two or more turns back; both still reach ingest through the digest. Everything
+written goes through `secret-gate.sh --redact` first, and the redacted text is also what
+reaches the classifier, so a credential in a prompt neither lands on disk nor leaves the
+machine; nothing is logged, for the same reason.
 
 ### lint
 

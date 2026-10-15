@@ -79,6 +79,27 @@ else
 fi
 printf '\n'
 
+printf '## Corrections the user made in conversation\n\n'
+# The correction hook writes a candidate per file into .state/corrections/ when the user
+# contradicts something the agent just said. Nothing else reads that directory, so without
+# this section the hook writes and no one listens — and a correction is the one class of
+# source that outranks every digest, so losing it is the expensive loss.
+#
+# Candidates, not facts: the hook classifies and never decides. Each is filed like a human
+# edit, or dismissed by deleting the file, and either way it leaves the directory this run.
+cdir="$vp/.state/corrections"
+cands=$(find "$cdir" -maxdepth 1 -name '*.md' 2>/dev/null | sort || true)
+if [ -z "$cands" ]; then printf '(none)\n'; else
+  printf 'Each file below is one correction the user typed. Treat it as a human edit: keep the claim, cite it (→ human, %s), and let no source below override it. Having filed or dismissed one, delete the file — a candidate left here is offered again next run.\n\n' "$(date +%Y-%m-%d)"
+  printf '%s\n' "$cands" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf -- '--- %s\n' "${f#"$vp/"}"
+    cat "$f"
+    printf '\n'
+  done
+fi
+printf '\n'
+
 printf '## Status markers that no longer hold\n\n'
 stale=$("$BRAIN_ROOT/scripts/verify.sh" . 2>/dev/null || true)
 if [ -z "$stale" ]; then printf '(none)\n'; else
