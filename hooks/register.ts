@@ -86,33 +86,83 @@ const search = async ($: EngineInterface, query: string): Promise<string> => {
     names.set(file, `${slug} ${slug.replace(/[-/]/g, ' ')}`)
   }
 
-  // One grep per term, so a page matching more of them ranks higher. A page is a hit
-  // for a term once, however many times the term occurs and whether it was the text or
-  // the name that carried it: frequency measures how long a page is, not how well it answers.
-  const hits = new Map<string, number>()
+  // One grep per term, counting how often each page says it. Ranking by the number of terms a
+  // page mentions at all cannot separate an ordinary question: measured against a 202-page
+  // vault, a three-word question about who reaches one production database put 38 pages on
+  // the identical score and the same question asked in a sentence put 25 there, because a
+  // word like `production` was on 138 of them. The tie then fell through to the path, which
+  // sorts `topics/` after every other directory, so the 137 pages holding most of that vault
+  // could not place in the top 8 at all and the page that answered was never returned.
+  const tf = new Map<string, Map<string, number>>()
   const byName = new Set<string>()
   for (const term of terms) {
     const { stdout } = await $.process.run(
-      ['grep', '-ril', '--include=*.md', '-e', term, ...dirs],
+      ['grep', '-ric', '--include=*.md', '-e', term, ...dirs],
       { timeoutMs: 15000 },
     )
-    const matched = new Set(stdout.split('\n').filter(Boolean))
+    const counted = new Map<string, number>()
+    for (const line of stdout.split('\n')) {
+      const cut = line.lastIndexOf(':')
+      if (cut < 1) continue
+      const n = Number(line.slice(cut + 1))
+      if (Number.isFinite(n) && n > 0) counted.set(line.slice(0, cut), n)
+    }
     const t = term.toLowerCase()
     for (const [file, name] of names) {
       if (!name.includes(t)) continue
-      if (!matched.has(file)) byName.add(file)
-      matched.add(file)
+      if (!counted.has(file)) byName.add(file)
+      // A term in the page's own name is what the page is *about*, so it counts as a mention
+      // the body would have had to repeat to earn.
+      counted.set(file, (counted.get(file) ?? 0) + 2)
     }
-    for (const file of matched) hits.set(file, (hits.get(file) ?? 0) + 1)
+    for (const [file, n] of counted) {
+      const row = tf.get(file) ?? new Map<string, number>()
+      row.set(term, n)
+      tf.set(file, row)
+    }
   }
-  if (hits.size === 0) return `No page mentions ${terms.map(t => `"${t}"`).join(' or ')}.`
+  if (tf.size === 0) return `No page mentions ${terms.map(t => `"${t}"`).join(' or ')}.`
 
-  // Within the same number of terms, the page *called* X answers "X" better than a page that
+  // Page length, so that repetition on a short page about the subject outranks one mention
+  // apiece on a long page that touches everything.
+  const { stdout: sized } = await $.process.run(['wc', '-c', ...names.keys()], { timeoutMs: 15000 })
+  const length = new Map<string, number>()
+  for (const line of sized.split('\n')) {
+    const m = /^\s*(\d+)\s+(\S.*)$/.exec(line)
+    if (m?.[2] !== undefined && m[2] !== 'total') length.set(m[2], Math.max(Number(m[1]), 1))
+  }
+  const sizes = [...length.values()]
+  const avg = sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) / sizes.length : 1
+  const total = Math.max(names.size, tf.size, 1)
+  const df = new Map<string, number>()
+  for (const row of tf.values()) for (const term of row.keys()) df.set(term, (df.get(term) ?? 0) + 1)
+
+  // BM25, with its usual constants: a term on most pages separates nothing, a repeated term
+  // counts with diminishing return, and the length divisor is what keeps the long pages honest.
+  const K1 = 1.2
+  const B = 0.75
+  const score = new Map<string, number>()
+  for (const [file, row] of tf) {
+    let s = 0
+    for (const [term, n] of row) {
+      const d = df.get(term) ?? 1
+      const idf = Math.log(1 + (total - d + 0.5) / (d + 0.5))
+      s += (idf * n * (K1 + 1)) / (n + K1 * (1 - B + (B * (length.get(file) ?? avg)) / avg))
+    }
+    score.set(file, s)
+  }
+
+  // Where two pages score the same, the page *called* X answers "X" better than a page that
   // merely links to it, so a name hit breaks the tie before the path does.
   const rank = (f: string) => (byName.has(f) ? 1 : 0)
-  const ranked = [...hits.entries()].sort(
-    (a, b) => b[1] - a[1] || rank(b[0]) - rank(a[0]) || a[0].localeCompare(b[0]),
-  )
+  const ranked = [...tf.entries()]
+    .map(([file, row]) => [file, row.size] as const)
+    .sort(
+      (a, b) =>
+        (score.get(b[0]) ?? 0) - (score.get(a[0]) ?? 0) ||
+        rank(b[0]) - rank(a[0]) ||
+        a[0].localeCompare(b[0]),
+    )
   const out: string[] = []
   for (const [file, matched] of ranked.slice(0, MAX_PAGES)) {
     const page = file.slice(vault.length + 1).replace(/\.md$/, '')

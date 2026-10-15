@@ -251,10 +251,27 @@ sessions that did want vault content the agent reached for `sed -n` or `cat` on 
 instead — it knew the vault was there and went round the one operation built to read it. So
 the read side no longer waits to be triggered. `hooks/register.ts` is a function-hooks module
 that registers a full-text search over the vault's five wiki directories as a tool, on
-`session.start`, which puts it in the tool list every turn: one `grep -ril` per term so a page
-matching more terms ranks higher, at most 8 pages back, each as `[[directory/page]]` with its
-lead paragraph and three matching lines. Frequency is not used for ranking, because it
-measures how long a page is and not how well it answers. The tool resolves which vault to
+`session.start`, which puts it in the tool list every turn: one `grep -ric` per term, ranked by
+BM25 over those counts, at most 8 pages back, each as `[[directory/page]]` with its lead
+paragraph and three matching lines.
+
+Ranking by the number of terms a page mentions at all was the first attempt and it does not
+work, which only shows on an ordinary question. Measured on 2026-10-15 against a 202-page
+vault: a question about who reaches one production database put 38 pages on the identical
+score, and the same question asked as a sentence put 25 there, because a word like
+`production` was on 138 of the 202. The tie fell through to the path, which sorts `topics/`
+after `decisions/`, `me/`, `people/` and `projects/` — so with 137 of that vault's pages in
+`topics/`, a tie wider than the cap returned eight alphabetically early pages and none of the
+pages the question was about. Run live against the same vault, the old ranking returned
+neither of the two pages that answer the questions the 120-run benchmark failed; BM25 returns
+them second and first. BM25 is what the discarded frequency count is worth keeping for: a term
+on most pages earns little, repetition counts with diminishing return, and dividing by page
+length is what stops a long page that touches everything from winning on bulk — which was the
+real objection to frequency, and is a length problem rather than a reason to throw the counts
+away. A term in the page's own name counts as two mentions, since a page's name is what it is
+about and its body never repeats it.
+
+The tool resolves which vault to
 search by running `scripts/resolve-vault.sh` rather than reimplementing routing in
 TypeScript — a second copy of `lib.sh`'s `include`-glob precedence would drift, and a machine
 with two vaults would otherwise be searched in whichever order the config happened to list
@@ -281,9 +298,26 @@ agent now reaches the page — in two of four runs, with an answer carrying both
 timestamps where every earlier run had answered "no record" — for about a tenth more cost and one
 more tool call. Where the repository holds a plausible partial answer, it still does not: all
 four runs read the workspace's own notes, answered from them, and never looked, because an agent
-that has found something does not reach the clause about finding nothing. That half is open, and
-it is the half the registered tool is better placed to close than any sentence, since the tool is
-in the list every turn rather than in a paragraph read once.
+that has found something does not reach the clause about finding nothing.
+
+Three more briefs were measured against that half on the same day, four runs each, and none of
+them moved it. Naming `index.md` — the vault's own list of every page and its summary — as the
+route to a page the injected list does not carry: no run opened it, and the question that the
+plain brief had reached in two of three runs fell to none of four, its tool calls rising from
+15-27 to 13-21, so an added sentence can cost what it does not buy. Telling the agent that when
+a check turns out to be unavailable the vault's dated record is the answer to give rather than a
+report that nothing could be checked: it did exactly that, and answered "from records, not a
+live check" out of its own week-old note instead of the page checked against the live system
+that day. Naming the answering page in the injected list, which cannot ship because the list is
+built before the question exists, is the only arm that moved either question — and it moved the
+hard one in one run of four.
+
+What every transcript shows instead is a nearer store: the agent reads
+`~/.claude/projects/<project>/memory/` first and stops, in all five arms and every run of that
+question. So the open half is not a retrieval failure the brief can word its way out of, and
+not the registered tool's absence from the list either — it is an agent's own notes outranking
+a vault page that was checked more recently, which is a question about where the pointer to the
+vault belongs rather than about how firmly the brief asks.
 
 
 ---

@@ -22,6 +22,9 @@ const vault = (
   matches: Record<string, string[]>,
   routed: string | null = '/home/t/acme-billing',
   pages: string[] = [],
+  // How often each page says each term, and how long each page is: what BM25 ranks on. A term
+  // left out of `counts` is said once by every page `matches` lists for it.
+  extra: { counts?: Record<string, Record<string, number>>; sizes?: Record<string, number> } = {},
 ): { searched: string[] } => {
   const searched: string[] = []
   on('session.cwd', () => ({ value: '/home/t/Repos/acme-billing' }))
@@ -36,14 +39,20 @@ const vault = (
     searched.push(...e.argv.filter(a => a.startsWith('/')))
     // The page list, which is what makes a page's own name searchable.
     if (e.argv[0] === 'find') return run(pages.length === 0 ? 1 : 0, pages.join('\n'))
+    if (e.argv[0] === 'wc') {
+      const paths = e.argv.filter(a => a.startsWith('/'))
+      return run(0, paths.map(f => `${extra.sizes?.[f] ?? 1000} ${f}`).join('\n'))
+    }
     const term = e.argv[e.argv.indexOf('-e') + 1] ?? ''
-    const files: string[] = matches[term] ?? []
+    const counts = extra.counts?.[term]
+    const files: string[] = counts !== undefined ? Object.keys(counts) : (matches[term] ?? [])
     return run(
       files.length === 0 ? 1 : 0,
-      // `grep -n` output when the call asks for matching lines rather than names.
+      // `grep -n` output when the call asks for matching lines rather than names, `grep -c`
+      // output — one `path:count` per page — when it asks how often each page says the term.
       e.argv.includes('-n')
         ? files.map(f => `12:  a line of ${f} mentioning ${term}`).join('\n')
-        : files.join('\n'),
+        : files.map(f => `${f}:${counts?.[f] ?? 1}`).join('\n'),
     )
   })
   return { searched }
@@ -133,4 +142,48 @@ test('a term in both the name and the text counts once, not twice', async ($, on
   expect(text).toContain('(1/1 terms)')
   // The text matched, so the page is quoted rather than labelled as a name-only hit.
   expect(text).not.toContain("matched on the page's name")
+})
+
+test('a page that keeps saying the term outranks one that mentions it in passing', async ($, on) => {
+  const page = (n: string) => `/home/t/acme-billing/topics/${n}.md`
+  vault(on, {}, '/home/t/acme-billing', [page('alpha'), page('zulu')], {
+    counts: { rounding: { [page('alpha')]: 1, [page('zulu')]: 9 } },
+    sizes: { [page('alpha')]: 4000, [page('zulu')]: 4000 },
+  })
+
+  const text = String((await ask($, 'rounding')).result)
+
+  expect(text.indexOf('topics/zulu')).toBeLessThan(text.indexOf('topics/alpha'))
+})
+
+test('a term nearly every page carries does not decide the order', async ($, on) => {
+  // The defect: ranking by terms matched put 38 of a 202-page vault on one score, because
+  // `production` was on 138 of them, and the tie fell to the path — which sorts `topics/`
+  // last, so the directory holding most of the vault could not place at all.
+  const page = (n: string) => `/home/t/acme-billing/topics/${n}.md`
+  const pages = [page('alpha'), page('beta'), page('zulu')]
+  vault(on, {}, '/home/t/acme-billing', pages, {
+    counts: {
+      production: { [page('alpha')]: 1, [page('beta')]: 1, [page('zulu')]: 1 },
+      ingress: { [page('alpha')]: 1, [page('beta')]: 1, [page('zulu')]: 7 },
+    },
+    sizes: Object.fromEntries(pages.map(f => [f, 4000])),
+  })
+
+  const text = String((await ask($, 'production ingress')).result)
+
+  expect(text).toContain('[[topics/zulu]]  (2/2 terms)')
+  expect(text.indexOf('topics/zulu')).toBeLessThan(text.indexOf('topics/alpha'))
+})
+
+test('a long page does not outrank a short one on bulk alone', async ($, on) => {
+  const page = (n: string) => `/home/t/acme-billing/topics/${n}.md`
+  vault(on, {}, '/home/t/acme-billing', [page('alpha'), page('zulu')], {
+    counts: { rounding: { [page('alpha')]: 4, [page('zulu')]: 4 } },
+    sizes: { [page('alpha')]: 40000, [page('zulu')]: 2000 },
+  })
+
+  const text = String((await ask($, 'rounding')).result)
+
+  expect(text.indexOf('topics/zulu')).toBeLessThan(text.indexOf('topics/alpha'))
 })
