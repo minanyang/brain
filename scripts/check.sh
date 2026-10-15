@@ -99,5 +99,13 @@ if [ -x scripts/test-provenance.sh ]; then
   scripts/test-provenance.sh || fail=1
 fi
 
+if [ -x scripts/test-memory-pointer.sh ]; then
+  scripts/test-memory-pointer.sh || fail=1
+fi
+
+if [ -x scripts/test-lint-threads.sh ]; then
+  scripts/test-lint-threads.sh || fail=1
+fi
+
 [ $fail = 0 ] && say "PASS" "all checks" || say "FAIL" "see above"
 exit $fail

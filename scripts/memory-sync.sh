@@ -7,9 +7,15 @@
 # Each project directory is routed like a session, by the cwd recorded in its newest
 # transcript; one with no transcript left cannot be routed and is skipped. A memory
 # file whose content changed since the last sync (git blob hash, kept per vault in
-# .state/memory.json) is copied verbatim into sources/memory/<date>-<name>.md with
-# ingested: false, after the secret gate, and committed under the vault lock. Nothing
-# is ever written back into the memory directory.
+# .state/memory.json) is copied into sources/memory/<date>-<name>.md with ingested: false,
+# after the secret gate, and committed under the vault lock.
+#
+# The one thing written back into the memory directory is a pointer at the vault page that
+# now holds a note's subject, by `memory-pointer.sh`; see its header for why. Everything from
+# that pointer's `<!-- brain:vault -->` marker to the end of a note is Brain's own, so it is
+# stripped here before the note is hashed or copied: left in, it would make an otherwise
+# unchanged note look changed on the next sync, and would come back into the vault as a
+# source claiming a page says something, which is Brain quoting itself as evidence.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 config_exists || exit 0
@@ -39,10 +45,14 @@ while IFS= read -r root; do
     for f in "$mdir"/*.md; do
       [ -f "$f" ] || continue
       case "$f" in */MEMORY.md) continue ;; esac   # the index, not a memory
-      hash=$(git hash-object "$f")
-      [ "$(jq -r --arg f "$f" '.[$f] // empty' "$state")" = "$hash" ] && continue
-      if ! "$BRAIN_ROOT/scripts/secret-gate.sh" < "$f" 2>/dev/null; then
-        log "secret gate blocked memory file $f"; continue
+      body=$(mktemp)
+      sed '/^<!-- brain:vault -->$/,$d' "$f" > "$body"
+      hash=$(git hash-object "$body")
+      if [ "$(jq -r --arg f "$f" '.[$f] // empty' "$state")" = "$hash" ]; then
+        rm -f "$body"; continue
+      fi
+      if ! "$BRAIN_ROOT/scripts/secret-gate.sh" < "$body" 2>/dev/null; then
+        log "secret gate blocked memory file $f"; rm -f "$body"; continue
       fi
       name=$(grep -m1 '^name:' "$f" | cut -d' ' -f2- | sed 's/^"//; s/"$//' || true)
       [ -n "$name" ] || name=$(basename "$f" .md)
@@ -54,8 +64,9 @@ while IFS= read -r root; do
       {
         printf -- '---\nmemory: %s\nproject: %s\nadded: %s\ntitle: "%s"\ningested: false\n---\n\n' \
           "${f/#$HOME/~}" "${cwd/#$HOME/~}" "$today" "$(yq "$name")"
-        cat "$f"; printf '\n'
+        cat "$body"; printf '\n'
       } > "$vp/$path"
+      rm -f "$body"
       jq --arg f "$f" --arg h "$hash" '.[$f] = $h' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
       unlock "$vp"
       written=$((written+1)); case " $written_in " in *" $vault "*) ;; *) written_in="$written_in $vault" ;; esac

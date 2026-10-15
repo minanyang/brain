@@ -19,7 +19,7 @@
 #      citations are provenance and do not count) — the lead is copied verbatim
 #      into brief.md and injected at the start of every session, so a fact with a shelf life
 #      there is the most expensive kind of staleness and the least checked
-#  13. pages whose ## Open threads list has outgrown review — a count per page, never a
+#  13. pages whose ## Open threads list grew since the last lint — per page, never a
 #      guess at which thread is finished
 #  14. pages deprecated longer than the window, or with a deprecated: value that does not
 #      say what superseded it
@@ -188,14 +188,44 @@ done
 # the finished thread was prototyped against a real vault — pair each thread's ticket with a
 # later-dated line elsewhere on the same page — and fired 30 times for 5 real defects, because
 # whether the later line answers the thread needs the page's sense, which is how four earlier
-# scans died too. A count is exact: 8 pages on a 208-page vault holding 684 threads.
-printf '## 13. Pages whose open-thread list has outgrown review (more than %s)\n' "$thread_max"
+# scans died too.
+#
+# What the count alone cannot do is stop. A page can hold more than the threshold with every
+# thread genuinely open — on a 208-page vault, six did, and a sweep of all of them closed five
+# threads and left 82 standing because they were all still waiting on something. A stock
+# measure then names those same pages at every run forever, which is how a rule becomes
+# scenery. So the finding is growth, not stock: a page is reported when its list is longer
+# than the last time lint ran, the count kept per page in .state/lint-threads.json (gitignored,
+# so it is machine-local like every other .state file). The stock is still printed beside it,
+# and the first run on a vault with no baseline reports whatever is already over the threshold,
+# once. An entry's own date cannot be used for this — most of a real vault's threads predate
+# the `- [thread <date>]` shape and carry no date at all.
+printf '## 13. Pages whose open-thread list grew since the last lint\n'
 n=0
+tstate=".state/lint-threads.json"
+mkdir -p .state; [ -f "$tstate" ] || printf 'null\n' > "$tstate"
+first=0; [ "$(jq -r 'if . == null then "new" else "seen" end' "$tstate")" = new ] && first=1
+tnew=$(mktemp)
+printf '{}' > "$tnew"
 for f in $pages; do
   c=$(awk '/^## Open threads/ {t=1; next} /^## / {t=0} t && /^- / && !/^- \[closed/ {k++} END {print k+0}' "$f")
-  [ "$c" -gt "$thread_max" ] || continue
-  printf -- '- %s — %s open threads; sweep the section with the page open and close the ones its body already answers\n' "${f#./}" "$c"; n=$((n+1))
+  page="${f#./}"
+  jq --arg p "$page" --argjson c "$c" '.[$p] = $c' "$tnew" > "$tnew.t" && mv "$tnew.t" "$tnew"
+  [ "$c" -gt 0 ] || continue
+  was=$(jq -r --arg p "$page" '.[$p] // empty' "$tstate")
+  if [ $first = 1 ]; then
+    [ "$c" -gt "$thread_max" ] || continue
+    printf -- '- %s — %s open threads and no earlier count to compare; sweep the section with the page open and close the ones its body already answers\n' "$page" "$c"
+  elif [ -n "$was" ] && [ "$c" -gt "$was" ]; then
+    printf -- '- %s — %s open threads, up from %s since the last lint; close the ones this ingest answered before the list stops being read\n' "$page" "$c" "$was"
+  elif [ -z "$was" ] && [ "$c" -gt "$thread_max" ]; then
+    printf -- '- %s — %s open threads on a page lint has not seen before; sweep the section with the page open\n' "$page" "$c"
+  else
+    continue
+  fi
+  n=$((n+1))
 done
+mv "$tnew" "$tstate"
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
 # 14. A page is deprecated rather than deleted so that someone who meets the old thing in the

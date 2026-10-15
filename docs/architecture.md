@@ -202,10 +202,22 @@ invites the question again; deleting a thread to tidy a page is the one move the
 forbidden here. What lint can say about a thread is only how many there are. Picking out the finished
 one was prototyped — pair each thread's ticket id with a later-dated line elsewhere on the same page —
 and fired 30 times for 5 real defects, because whether the later line answers the thread needs the
-page's sense, which is how the four rules of 2026-10-13 died as well. So rule 13 counts instead: a
-page whose list exceeds twelve entries, 8 findings on that vault, one line per page, and the action is
-a sweep of that one section with the page open — the same shape as asking ingest to check the status
-claims of a page it is already reading, which found eight real defects where a scan found none.
+page's sense, which is how the four rules of 2026-10-13 died as well. So rule 13 counts instead, and
+the action is a sweep of that one section with the page open — the same shape as asking ingest to check
+the status claims of a page it is already reading, which found eight real defects where a scan found
+none.
+
+What a count alone cannot do is stop. The rule first reported any page past twelve entries, which was
+8 pages on a 208-page vault; the sweep that followed closed five threads and left 82 standing, because
+they were all still genuinely waiting on something. A page can therefore satisfy a stock threshold
+permanently while being perfectly well kept, and a rule that names the same six pages at every run is
+scenery rather than a finding. Since 2026-10-16 the finding is growth: a page is reported when its
+list is longer than it was the last time lint ran, with the stock printed beside it, and the count
+kept per page in the vault's gitignored `.state/lint-threads.json`. The first run on a vault with no
+baseline still reports what is already past twelve, once, so a vault that has never been swept is not
+silent. Growth is the right measure because it goes quiet the moment a section is tended and speaks
+again when it starts collecting; and an entry's own date could not have replaced the baseline, because
+most of a real vault's threads predate the `- [thread <date>]` shape and carry no date at all.
 
 Three kinds of content sit side by side on a page and are worth different amounts. `index.md`,
 `brief.md`, `log.md` and the `sources:`/`sources_cited:` fields are generated: rewriting them by hand
@@ -313,11 +325,33 @@ built before the question exists, is the only arm that moved either question —
 hard one in one run of four.
 
 What every transcript shows instead is a nearer store: the agent reads
-`~/.claude/projects/<project>/memory/` first and stops, in all five arms and every run of that
+`<transcript root>/<project>/memory/` first and stops, in all five arms and every run of that
 question. So the open half is not a retrieval failure the brief can word its way out of, and
 not the registered tool's absence from the list either — it is an agent's own notes outranking
-a vault page that was checked more recently, which is a question about where the pointer to the
-vault belongs rather than about how firmly the brief asks.
+a vault page that was checked more recently.
+
+### memory-pointer
+
+That is what `scripts/memory-pointer.sh` answers, and it is the one thing Brain writes outside
+a vault. Ingest runs it for every memory snapshot whose facts it filed, and it replaces a
+single region at the end of the live note — introduced by `<!-- brain:vault -->`, so a second
+run replaces rather than appends — naming the page, the page's own `updated:` date and the
+page's section headings. Measured against the same question on 2026-10-16, four runs each with
+the shipped brief and nothing else changed: no pointer, 0 of 15 across five briefs; a pointer
+saying only that the page holds "the current state of this subject", 1 of 4; a pointer that
+also lists what the page covers, 6 of 8, with the answers naming the page and its date. The
+difference between the last two is the whole mechanism — the note is read first either way, so
+what decides is whether the agent can tell from the pointer that this question is that page's
+subject, and section headings say that deterministically where a summary does not.
+
+Writing into the agent's own memory directory is a deliberate reversal: `memory-sync.sh` used
+to say that nothing is ever written back there. The cost is that a note is no longer purely the
+agent's own, so two things are kept true. `memory-sync.sh` strips the marked region before it
+hashes or copies a note, because otherwise a pointer would make an unchanged note look changed
+at the next sync and would come back into the vault as a source saying a page says something —
+Brain quoting itself as evidence. And the pointer carries no claim of its own beyond a path, a
+date and headings: everything a reader might act on stays on the page, where it is dated and
+can be checked.
 
 
 ---
