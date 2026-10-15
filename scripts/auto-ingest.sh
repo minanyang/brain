@@ -125,8 +125,11 @@ EOF
   prompt=$(cat "$pf")
   rm -f "$pf"
 
-  # Tools mirror the skill's own allowed-tools: the four scripts it runs, and nothing
-  # else through Bash. An unattended run must not be able to reach git directly.
+  # Tools mirror the skill's own allowed-tools: the scripts it runs, named one by one, and
+  # nothing else through Bash. An unattended run must not be able to reach git directly.
+  # memory-pointer.sh is on the list because the skill's step 3 runs it for every memory
+  # snapshot it files, and a whitelist that leaves a step's script out does not make the step
+  # optional — it makes the run fail at it.
   out=$(mktemp "${TMPDIR:-/tmp}/brain-auto-ingest.XXXXXXXX")
   BRAIN_INNER=1 claude -p "$prompt" \
       --model "$model" \
@@ -138,6 +141,7 @@ EOF
         "Bash($BRAIN_ROOT/scripts/write-lock.sh *)" \
         "Bash($BRAIN_ROOT/scripts/ingest-prep.sh *)" \
         "Bash($BRAIN_ROOT/scripts/git-read.sh *)" \
+        "Bash($BRAIN_ROOT/scripts/memory-pointer.sh *)" \
         "Bash($BRAIN_ROOT/scripts/finish.sh *)" \
     </dev/null > "$out" 2>&1
   status=$?
