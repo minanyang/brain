@@ -13,9 +13,16 @@
 # The one thing written back into the memory directory is a pointer at the vault page that
 # now holds a note's subject, by `memory-pointer.sh`; see its header for why. Everything from
 # that pointer's `<!-- brain:vault -->` marker to the end of a note is Brain's own, so it is
-# stripped here before the note is hashed or copied: left in, it would make an otherwise
-# unchanged note look changed on the next sync, and would come back into the vault as a
-# source claiming a page says something, which is Brain quoting itself as evidence.
+# stripped out of the copy: left in, it would come back into the vault as a source claiming a
+# page says something, which is Brain quoting itself as evidence.
+#
+# The hash, though, is of the file as it sits on disk, pointer and all. Hashing the stripped
+# text instead looks tidier and is wrong, because a session pins its plugin version for its
+# whole life: with one session on a version that strips and another on a version from before
+# the pointer existed, the two computed different hashes for the same unchanged note and each
+# re-snapshotted what the other had just written. On 2026-10-16 that produced five snapshots
+# of one note in a day, two of them carrying the pointer into the vault. Hashing the on-disk
+# bytes is the one formula every version agrees on.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 config_exists || exit 0
@@ -47,7 +54,7 @@ while IFS= read -r root; do
       case "$f" in */MEMORY.md) continue ;; esac   # the index, not a memory
       body=$(mktemp)
       sed '/^<!-- brain:vault -->$/,$d' "$f" > "$body"
-      hash=$(git hash-object "$body")
+      hash=$(git hash-object "$f")
       if [ "$(jq -r --arg f "$f" '.[$f] // empty' "$state")" = "$hash" ]; then
         rm -f "$body"; continue
       fi

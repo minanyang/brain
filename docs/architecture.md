@@ -346,12 +346,23 @@ subject, and section headings say that deterministically where a summary does no
 
 Writing into the agent's own memory directory is a deliberate reversal: `memory-sync.sh` used
 to say that nothing is ever written back there. The cost is that a note is no longer purely the
-agent's own, so two things are kept true. `memory-sync.sh` strips the marked region before it
-hashes or copies a note, because otherwise a pointer would make an unchanged note look changed
-at the next sync and would come back into the vault as a source saying a page says something —
-Brain quoting itself as evidence. And the pointer carries no claim of its own beyond a path, a
-date and headings: everything a reader might act on stays on the page, where it is dated and
-can be checked.
+agent's own, so three things are kept true. `memory-sync.sh` strips the marked region out of
+the copy it writes, because a pointer that reached the vault would be a source saying a page
+says something — Brain quoting itself as evidence. The pointer carries no claim of its own
+beyond a path, a date and headings, so everything a reader might act on stays on the page where
+it is dated and checkable. And the change-detection hash is of the note as it sits on disk,
+pointer included, which `memory-pointer.sh` re-stamps when it writes.
+
+That last one cost a day to learn. Hashing the stripped text is the tidier-looking choice and it
+is wrong, because a session pins its plugin version for its whole life: a session on the version
+that strips and a session on a version from before the pointer existed compute different hashes
+for the same unchanged note, so each re-snapshots what the other has just written. Within hours
+of 0.6.8 going in, one note had five snapshots in a day and two of them carried the pointer into
+the vault — the exact leak the strip was written to prevent, arriving by the other side of the
+same mechanism. The on-disk bytes are the one formula every version agrees on, which is the
+general rule: state shared between versions has to be keyed on something no version is free to
+reinterpret. The ingest skill also names the region as never-file, because snapshots written by
+an older session already exist and `sources/` is append-only.
 
 
 ---

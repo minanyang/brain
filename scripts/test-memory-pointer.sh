@@ -55,6 +55,23 @@ case "$(grep -m1 '^\*\*Vault:' "$note")" in
   *) ok "housekeeping sections are left out" ;;
 esac
 
+# A pointer must not cost a snapshot. memory-sync.sh hashes the note as it sits on disk, so
+# the write re-stamps that hash — without it, one session's sync re-snapshots what another
+# session's sync just wrote, which on 2026-10-16 made five snapshots of one note in a day.
+mkdir -p "$t/vault/.state"
+printf -- '---\nname: db-allow\n---\n\nRun the script.\n' > "$note"
+printf '{"%s": "%s"}\n' "$note" "$(git hash-object "$note")" > "$t/vault/.state/memory.json"
+run --page topics/db-safety
+is "the pointer's own write leaves the note looking unchanged to a sync" \
+  "$(jq -r --arg f "$note" '.[$f]' "$t/vault/.state/memory.json")" "$(git hash-object "$note")"
+
+# A note nothing has ever snapshotted has no entry, and inventing one would mean it is never
+# snapshotted at all.
+printf '{}\n' > "$t/vault/.state/memory.json"
+run --page topics/db-safety
+is "a note with no entry does not get one" \
+  "$(jq -r --arg f "$note" 'has($f)' "$t/vault/.state/memory.json")" "false"
+
 if "$here/memory-pointer.sh" --vault acme --note "$t/vault/topics/db-safety.md" \
    --page topics/db-safety >/dev/null 2>&1; then
   bad "refuses a path outside a memory directory" "it wrote to a vault page"

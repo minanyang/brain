@@ -65,4 +65,14 @@ sed "/^$MARKER\$/,\$d" "$note" > "$tmp"
 # A note that ended inside the old region must not lose its last blank line boundary.
 printf '%s\n%s\n' "$MARKER" "${lines#$'\n'}" >> "$tmp"
 mv "$tmp" "$note"
+
+# Writing the pointer changes the note, which a sync would otherwise read as a human edit.
+# memory-sync.sh hashes the file as it sits on disk, so re-stamping that hash here is what
+# keeps this write from costing a snapshot. An entry that is not already there is left alone:
+# that note has never been snapshotted and still has to be.
+state="$vp/.state/memory.json"
+if [ -f "$state" ] && [ "$(jq -r --arg f "$note" 'has($f)' "$state")" = true ]; then
+  h=$(git hash-object "$note")
+  jq --arg f "$note" --arg h "$h" '.[$f] = $h' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
+fi
 log "pointed $(basename "$note") at ${#pages[@]} page(s)"
