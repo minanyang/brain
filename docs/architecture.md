@@ -396,6 +396,14 @@ mid-table, closed with the wrong bracket, or not closed at all. On the same corp
 2,654 prompts by 2026-10-19, that gates 153 of the 824 — 18.5% — and four in five of those open
 with the quote.
 
+Two shapes got past that first version and are handled too. `[` opens a paste for 52 of the 824,
+so it joins the set of opening delimiters — but with no closing pair, because a `[` further into
+a prompt is a markdown link or a ticket id and stripping those would take the subject out of the
+question. And a closer left with no opener, which 39 of the 824 end up carrying, is the evidence
+that the stripping itself failed: nested quotes, where the outer open pairs off against the inner
+close and leaves half a paste behind. The length that survives that is not a length to trust, so
+the prompt is treated as a paste.
+
 It is the stricter of two readings, and the cost was measured rather than assumed. Keeping short
 quoted spans brings back about 30 of the 153, and most of those are real questions whose subject
 sits inside the quote: `「the reconciler ran nine workers」why nine?`. But the same move lets

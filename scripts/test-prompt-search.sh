@@ -79,6 +79,21 @@ case "$(ctx "$(run "$q")")" in
   *) bad "a real question after a quote is still searched" "it was gated out" ;;
 esac
 
+# Nested quotes defeat the stripping: the outer open pairs off against the inner close and
+# leaves half a paste behind, which is long. A closer with no opener is the evidence that
+# happened, so the surviving length is not one to trust.
+is "a nested quote is not searched" \
+  "$(run '「 - 「compatibility」the reconciler double counted a ledger entry last week.」fix it')" ""
+# A paste that opens with a square bracket, which is how a quoted log line arrives.
+is "a paste opening with a bracket is not searched" \
+  "$(run '[the reconciler double counted a ledger entry in production last week, twice]')" ""
+# But a bracket further in is a ticket id or a markdown link, and stripping those would take
+# the subject out of the question, so only the opening position counts.
+case "$(ctx "$(run 'why did the reconciler double count the ledger entry in invoices[0] last week')")" in
+  *'[[topics/reconciler-double-count]]'*) ok "a bracket inside a question is left alone" ;;
+  *) bad "a bracket inside a question is left alone" "it was gated out" ;;
+esac
+
 # A slash command's body is injected text, not a question about the vault.
 is "a slash command is not searched" "$(run '/brain:ingest reconciler ledger double count now')" ""
 

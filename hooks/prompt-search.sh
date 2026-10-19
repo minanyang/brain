@@ -47,7 +47,13 @@ cwd=$(printf '%s' "$in" | jq -r '.cwd // empty' 2>/dev/null)
 # gate and 153 of those, 18.5%, hold a quote with nothing of the user's own beside it.
 #
 # An opening delimiter the prompt never closes runs to the end, because that is how a pasted
-# block arrives — cut off mid-table, closed with the wrong bracket, or not closed at all.
+# block arrives — cut off mid-table, closed with the wrong bracket, or not closed at all. `[` is
+# in that set but has no pair here: 52 of the 824 open with one, while a `[` further in is a
+# markdown link or a ticket id, and stripping those would take the subject out of the question.
+#
+# A closer left with no opener means the stripping itself failed — nested quotes, where the
+# outer open pairs off against the inner close and leaves half a paste behind — so the length
+# that survives is not a length to trust. 39 of the 824 end up that way.
 #
 # This is the stricter of the two readings and its cost is measured, not hoped: about 30 of the
 # 153 are a short quote used as a noun inside a real question, and they are gated too. See
@@ -59,7 +65,8 @@ cwd=$(printf '%s' "$in" | jq -r '.cwd // empty' 2>/dev/null)
 n=$(printf '%s' "$in" | jq -r '
   .prompt
   | gsub("「[^」]*」"; " ") | gsub("“[^”]*”"; " ") | gsub("\"[^\"]*\""; " ")
-  | sub("(?s)^[ \t]*[「“\">].*"; " ")
+  | sub("(?s)^[ \t]*[「“\">\\[].*"; " ")
+  | if test("」|”") then "" else . end
   | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | length' 2>/dev/null) || exit 0
 case "$n" in ''|*[!0-9]*) exit 0 ;; esac
 [ "$n" -ge 40 ] || exit 0
