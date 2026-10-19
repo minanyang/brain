@@ -127,6 +127,10 @@ if [ -x scripts/test-prompt-search.sh ]; then
   scripts/test-prompt-search.sh || fail=1
 fi
 
+if [ -x scripts/test-status-compact.sh ]; then
+  scripts/test-status-compact.sh || fail=1
+fi
+
 if [ -x scripts/test-search-ranking.sh ]; then
   scripts/test-search-ranking.sh || fail=1
 fi

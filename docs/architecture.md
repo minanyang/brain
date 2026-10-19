@@ -377,6 +377,23 @@ tidiness. An injected block lands inside the user's turn, so distill would quote
 pages as the user's words and ingest would file the vault back into itself as a session source
 — the loop 0.6.11 was released to close, arriving by a second door.
 
+After a compaction the conversation keeps a summary of itself, and a summary of a vault page is
+the one thing the read side exists to prevent — the measured failure on "why was this decided"
+questions was an agent answering from a page's summary rather than the page. So when
+`SessionStart` fires with `source=compact` (or `resume`, which loses the same thing),
+`scripts/status.sh` names the pages the conversation already cited, as addresses to re-open. It
+does not re-quote them: that would spend the context the compaction just reclaimed. A `clear` is
+excluded, because the user asked for a fresh start.
+
+This is the whole of what the host allows, and the first design was wrong about it. The plan was
+agentmemory's pattern — re-inject on `PreCompact`, so the summariser itself sees the vault — but
+Claude Code's `PreCompact` can only *block* a compaction, and discards `systemMessage` and
+`continue`; `PostCompact` "can't affect the compaction result" either, and neither event appears
+in the documented list of events that support `additionalContext`. `SessionStart` with
+`source=compact` is the documented place, and the hook was already registered on that matcher,
+so most of what was planned here had in fact been shipped since 0.4.0 without being written
+down.
+
 The session-start list is not a substitute for that tool, and a 120-run benchmark on
 2026-10-15 shows why. Five of its six questions the vault arm answered well (mean 2.14
 against 0.42, and one confidently wrong answer against nineteen); the sixth it answered no

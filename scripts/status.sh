@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# status.sh <cwd> → SessionStart context as JSON on stdout (nothing if idle).
+# status.sh <cwd> [--source <s>] [--transcript <path>]
+#   → SessionStart context as JSON on stdout (nothing if idle).
 #
 # Reads only files, never the model. Emits:
 #   - the default schema, when cwd is inside a vault
@@ -7,10 +8,20 @@
 #   - the routed vault's brief.md, when inject_brief is true
 #   - a session map, when inject_brief is true: the wiki pages that this directory's
 #     sessions of the last 30 days fed, most cited first, so the agent knows what to read
+#   - after a compaction or a resume, the vault pages this conversation already cited
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 config_exists || exit 0
 cwd="${1:-$PWD}"
+shift || true
+src="" transcript=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --source) src="${2:-}"; shift ;;
+    --transcript) transcript="${2:-}"; shift ;;
+  esac
+  shift
+done
 
 ctx=""
 # Inside a vault: inject the schema so the agent knows how the vault is organised.
@@ -87,6 +98,38 @@ if [ -n "$vault" ]; then
     fi
   fi
 fi
+
+# After a compaction the conversation keeps a summary of itself, and a summary of a vault page
+# is the one thing the read side is built to prevent: the measured failure on "why was this
+# decided" questions was an agent answering from a page's summary rather than the page. The
+# pages this conversation already cited are therefore named again, as addresses to re-open —
+# not re-quoted, which would spend the context the compaction just reclaimed.
+#
+# This is the whole of what can be done about it. PreCompact can block a compaction but cannot
+# add anything to one, and PostCompact cannot either; SessionStart with source=compact is the
+# documented place, and it is already where this script runs.
+#
+# A resume is included because it loses the same thing. A `clear` is not: the user asked for a
+# fresh start and listing what the cleared conversation read would argue with them.
+case "$src" in
+  compact|resume)
+    if [ -n "$transcript" ] && [ -f "$transcript" ] && [ -n "${vault:-}" ]; then
+      # The existence test is inside an `if`, not a trailing `&&`: a `[[page]]` the vault does
+      # not have — a link the agent invented, or a page since renamed — would otherwise make
+      # the loop body exit non-zero on its last iteration, and under `set -e` that killed the
+      # whole script. The symptom was this section never appearing, which looks exactly like
+      # the feature not being built.
+      read_pages=$( (grep -oE '\[\[[a-z0-9]+/[a-z0-9][a-z0-9.-]*\]\]' "$transcript" 2>/dev/null \
+        | sed 's/^\[\[//; s/\]\]$//' | awk '!seen[$0]++' \
+        | while IFS= read -r pg; do
+            if [ -f "$vp/$pg.md" ]; then printf -- '- [[%s]]\n' "$pg"; fi
+          done | head -10) || true)
+      if [ -n "$read_pages" ]; then
+        ctx="${ctx:+$ctx$'\n\n'}Vault pages this conversation already cited, at $vp/<page>.md. The conversation above is a summary of itself, so a claim it carries about one of these pages is a summary of a summary; re-open the page before stating what it says."$'\n'"$read_pages"
+      fi
+    fi
+    ;;
+esac
 
 [ -n "$ctx" ] || exit 0
 jq -n --arg c "$ctx" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'
