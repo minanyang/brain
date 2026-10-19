@@ -31,7 +31,13 @@ scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transc
 .claude-plugin/  plugin.json and marketplace.json
 ```
 
-After touching either manifest, run `./scripts/check.sh` — `claude plugin validate . --strict` alone reads marketplace.json and misses whole classes of plugin.json warning, so check.sh validates both paths. To try the plugin from the working tree without installing it: `claude --plugin-dir ~/Repos/brain`. A behaviour change needs a version bump in both manifests to reach anyone: `claude plugin update` compares versions, so pushing new code under the old number reports "already at the latest version" and installs nothing. Scripts must stay bash 3.2-compatible (macOS default) and depend only on `jq` and `git`.
+After touching either manifest, run `./scripts/check.sh` — `claude plugin validate . --strict` alone reads marketplace.json and misses whole classes of plugin.json warning, so check.sh validates both paths. To try the plugin from the working tree without installing it: `claude --plugin-dir ~/Repos/brain`. Scripts must stay bash 3.2-compatible (macOS default) and depend only on `jq` and `git`.
+
+## Releasing
+
+Do not bump the version. Commits accumulate under the current number, and a release is a separate thing the maintainer asks for: one commit that bumps both manifests, then a push and a tag. The version is the unit of delivery, not of change. Bumping per change mints releases nobody ran, which is what `v0.6.12` through `v0.6.24` are — fourteen numbers tagged in one session, not one of them ever installed, and the installed copy sat at `0.6.11` the whole time, so every bump bought nothing.
+
+The bump does matter when it happens, and this is the whole of what it is for: `claude plugin update` compares versions, so pushing new code under the old number reports "already at the latest version" and installs nothing. Between releases the pushed tree is therefore ahead of every installed copy. That is expected, and `claude --plugin-dir ~/Repos/brain` runs the working tree without installing it — it is not a reason to bump.
 
 ## Where the design lives
 
