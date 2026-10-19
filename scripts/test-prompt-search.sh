@@ -27,7 +27,9 @@ while [ "$i" -le 11 ]; do
     > "$t/vault/topics/filler-$i.md"
   i=$((i + 1))
 done
-printf '{"vaults":[{"name":"acme","path":"%s","include":["%s/work/**"]}]}\n' "$t/vault" "$t" > "$t/config.json"
+# push_pages is off by default — see hooks/prompt-search.sh — so every case here turns it on,
+# and the last case checks that the default is what it says it is.
+printf '{"push_pages":true,"vaults":[{"name":"acme","path":"%s","include":["%s/work/**"]}]}\n' "$t/vault" "$t" > "$t/config.json"
 export BRAIN_CONFIG="$t/config.json"
 export CLAUDE_PLUGIN_ROOT="$(cd "$here/.." && pwd)"
 
@@ -114,6 +116,11 @@ is "no budget at all injects nothing" \
 # An inner run is the plugin's own agent working, and injecting into it would feed the vault to
 # the process that writes the vault.
 is "an inner run is left alone" "$(BRAIN_INNER=1 run "$long")" ""
+
+# The default. A switch that is documented off and ships on is the worst of both: nobody reads
+# the doc and nobody measured the behaviour.
+printf '{"vaults":[{"name":"acme","path":"%s","include":["%s/work/**"]}]}\n' "$t/vault" "$t" > "$t/config.json"
+is "nothing is injected until push_pages is turned on" "$(run "$long")" ""
 
 printf 'test-prompt-search: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

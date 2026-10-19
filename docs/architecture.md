@@ -358,8 +358,17 @@ normaliser, whose regexes for "will" and "plans to" match nothing in a Mandarin 
 
 A tool in the list is still a tool that has to be chosen, and measured across 56 sessions where
 a vault lookup would have helped, it was invoked organically in 1. So the pages a question needs
-are now pushed as well: `hooks/prompt-search.sh` runs on `UserPromptSubmit`, searches the
-prompt, and returns `hookSpecificOutput.additionalContext`. Three things decide whether it says
+can be pushed as well: `hooks/prompt-search.sh` runs on `UserPromptSubmit`, searches the prompt,
+and returns `hookSpecificOutput.additionalContext`.
+
+**`push_pages` is `false` by default, and that is the honest state of this feature.** The 1-in-56
+figure is a reason to measure before pushing, not a reason to push: on every prompt past the gate
+this spends up to 2000 characters, and a page that is merely plausible is worse than none because
+the agent cannot tell the difference. Nothing in a transcript distinguishes an injection that
+helped from one that was ignored or that misled, so the switch waits on the instrument that can —
+the 120-run benchmark, which has not been re-run since 0.6.7 and is therefore the only honest next
+step for the whole read side. `inject_brief` carries the same switch for the same reason, and its
+default moved when a benchmark said what it was worth, not when it felt ready. Three things decide whether it says
 anything, and each exists because the first version of it was wrong.
 
 A **length gate** at 40 codepoints. Measured over 2,650 real interactive prompts since

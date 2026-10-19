@@ -13,6 +13,18 @@ set -u
 [ "${BRAIN_INNER:-}" = 1 ] && exit 0
 root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 [ -f "${BRAIN_CONFIG:-$HOME/.brain/config.json}" ] || exit 0
+. "$root/scripts/lib.sh"
+
+# Off until measured. The one thing established about the read side is that across 56 sessions
+# where a vault lookup would have helped, the agent chose the search tool once — which is a
+# reason to measure before pushing, not a reason to push. On by default this spends up to
+# BUDGET characters on every prompt past the gate, and a page that is merely plausible is worse
+# than none, because the agent cannot tell. The failure is silent either way: nothing in a
+# transcript distinguishes an injection that helped from one that was ignored or that misled.
+#
+# `inject_brief` carries the same switch for the same reason, and its default has never moved
+# on taste: it moved when a 120-run benchmark said what it was worth.
+[ "$(config_get '.push_pages' false)" = true ] || exit 0
 
 in=$(cat)
 prompt=$(printf '%s' "$in" | jq -r '.prompt // empty' 2>/dev/null) || exit 0

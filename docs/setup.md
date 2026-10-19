@@ -45,6 +45,7 @@ It asks one question — *which directories should feed this vault?* — with `~
      "transcripts": ["~/.claude/projects"],
      "distill_model": "haiku",
      "inject_brief": false,
+     "push_pages": false,
      "vaults": [
        { "name": "personal", "path": "~/vaults/personal", "include": ["~/**"] }
      ]
