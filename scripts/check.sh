@@ -77,6 +77,23 @@ if command -v claude >/dev/null; then
     [ -n "$other" ] && { say "FAIL" "claude plugin validate: $target"; printf '%s\n' "$other"; fail=1; }
   done
   say "ok" "plugin validate"
+
+  # The hooks module's own tests. They existed and passed for weeks without being run here,
+  # which made them documentation: the ranking they cover was changed three times on measured
+  # evidence and nothing in the repository could have told that a change made it worse.
+  # The ranking fixture's per-question table is printed on every run even when it passes,
+  # because a rank that moved from 1 to 7 while the suite stayed green is the thing worth
+  # seeing, and an aggregate hides exactly that.
+  out=$(mktemp "${TMPDIR:-/tmp}/brain-hooktest.XXXXXX")
+  if claude plugin test . >"$out" 2>&1; then
+    say "ok" "hook tests"
+    sed -n '/ranking fixture:/,/MRR/p' "$out"
+  else
+    say "FAIL" "hook tests"
+    tail -30 "$out"
+    fail=1
+  fi
+  rm -f "$out"
 fi
 
 if [ -x scripts/test-codex.sh ]; then
