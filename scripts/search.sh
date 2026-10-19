@@ -279,11 +279,33 @@ if [ "$pages" -lt 10 ]; then
 else
   rare=$(awk -F'\t' -v c="$rare_cap" '$2 <= c { print $1 }' "$work/df")
 fi
-if [ -n "$rare" ]; then
+# Document frequency is a proxy for how much a term tells you, and it holds only while the
+# query and the vault are written in the same script. Measured against a real 219-page vault on
+# 2026-10-19: its prose is English and Mandarin appears only in quoted speech, 1.2% of all
+# characters, so 2,340 of its 2,344 distinct Mandarin bigrams sit at or under the cap — 99.8% of
+# them count as rare. For a question asked in Mandarin the floor is therefore a no-op. Worse
+# than a no-op: the shape of the failure is `為什麼對帳會重複計算` ranking a page that merely
+# quotes somebody asking `為什麼` above the page the question is about, because `為什麼` was on
+# two pages and the subject on seven, so the least informative token in the question carried the
+# highest idf of anything in it.
+#
+# So on the push path a term counts toward the floor only if it is in the script the vault is
+# written in. 88% of real prompts over the length gate carry one; the rest get silence, which is
+# the honest answer when the one statistic available cannot tell a subject from a question word.
+# The registered tool is unrestricted, exactly as it is for the floor itself: there, somebody
+# asked, and a weak answer they can see the weakness of beats silence.
+if [ "$require_rare" = 1 ] && [ -n "$rare" ]; then
+  rare=$(printf '%s\n' "$rare" | LC_ALL=C grep -E '^[!-~]+$' || true)
+fi
+printf '%s\n' "$rare" | awk 'NF' | LC_ALL=C sort > "$work/rare"
+if [ -s "$work/rare" ]; then
   # The rarest matched term, which is what the quoted lines are grepped for. `sort -k1,1n`
   # orders by document frequency; among equals the first in df order wins, which is stable
-  # because df is written in the order the terms were counted, which is query order.
-  lowest=$(awk -F'\t' '{ print $2 "\t" $1 }' "$work/df" | LC_ALL=C sort -k1,1n | head -1 | cut -f2)
+  # because df is written in the order the terms were counted, which is query order. It is
+  # drawn from the rare set, so the excerpt is keyed on a term the floor accepted rather than
+  # on a question word that happens to be rare in this vault.
+  lowest=$(awk -F'\t' 'NR == FNR { r[$1]; next } $1 in r { print $2 "\t" $1 }' \
+    "$work/rare" "$work/df" | LC_ALL=C sort -k1,1n | head -1 | cut -f2)
   [ -n "$lowest" ] && first="$lowest"
 elif [ "$require_rare" = 1 ]; then
   exit 0
@@ -303,7 +325,6 @@ fi
 # corpus built by the same hand, not that it is harmless on a vault. It stays on the path whose
 # cost is bounded — one injection nobody asked for — until it has been run against a real one.
 if [ "$require_rare" = 1 ]; then
-  printf '%s\n' "$rare" | awk 'NF' | LC_ALL=C sort > "$work/rare"
   awk -F'\t' 'NR == FNR { r[$1]; next } $2 in r { print $1 }' "$work/rare" "$work/tf" \
     | LC_ALL=C sort -u > "$work/rarepages"
   awk -F'\t' 'NR == FNR { p[$1]; next } $4 in p' "$work/rarepages" "$work/ranked" > "$work/ranked.f"
