@@ -158,7 +158,7 @@ awk -v f="$found" -v t="$total" -v r="$recip" 'BEGIN { printf "  recall@8 %.3f  
 # still be a known miss. Two of the three became hits when `aliases:` landed, which is the
 # fixture doing its job; the day the last one does, this fails and asks for a harder question
 # rather than quietly reporting a perfect score.
-mpass=0
+mpass=0 mfail=0
 misses=$(grep -c "^check absent " "$here/test-search-ranking.sh")
 if [ "$misses" -ge 1 ]; then
   printf '  ok the fixture still holds %s question(s) it is expected to fail\n' "$misses"
@@ -173,7 +173,7 @@ fi
 # one decision under test can explain the order. These were assertions in hooks/search.test.ts
 # against a mock of grep; they are here now because the mock disagreed with grep.
 # ---------------------------------------------------------------------------------------
-m() { if [ "$2" = "$3" ]; then mpass=$((mpass + 1)); printf '  ok %s\n' "$1"; else fail=$((fail + 1)); printf '  FAIL %s — expected %s, got %s\n' "$1" "$3" "$2" >&2; fi; }
+m() { if [ "$2" = "$3" ]; then mpass=$((mpass + 1)); printf '  ok %s\n' "$1"; else mfail=$((mfail + 1)); printf '  FAIL %s — expected %s, got %s\n' "$1" "$3" "$2" >&2; fi; }
 
 mech() {  # mech <query…> → prints the ranked slugs, one per line
   "$here/search.sh" --vault-path "$w" "$@" | sed -n 's/^## \[\[\(.*\)\]\].*/\1/p'
@@ -215,6 +215,16 @@ m "a page is found by its own name" "$(mech version train | head -1)" "topics/ve
 # a tie before the path does.
 newvault; mpage topics/reconciler 0 ledger:1; mpage topics/aaa-links-here 0 reconciler:1 ledger:1
 m "a name hit breaks the tie before the path" "$(mech reconciler | head -1)" "topics/reconciler"
+
+# A term is one term however the asker capitalised it. The name hit was labelled with the
+# lowercased term while the text count kept the term as typed, so a page matching both ways
+# carried two rows for one term: it counted twice toward coverage, scored twice, and split its
+# own document frequency. Every question here and every page name is lowercase, which is why
+# the fixture never showed it — so this one asks in the capitalisation a person would use.
+newvault; mpage topics/reconciler 0 reconciler:3
+m "a term is one term however it was capitalised" \
+  "$("$here/search.sh" --vault-path "$w" Reconciler | sed -n 's/.*(\([0-9]*\/[0-9]*\) terms)/\1/p' | head -1)" \
+  "1/1"
 
 
 
@@ -282,6 +292,9 @@ case "$("$here/search.sh" --vault-path "$w" -- '京都的拉麵店推薦' 2>&1)"
   *) m "a subject the vault lacks is said plainly" "unexpected output" ok ;;
 esac
 
-printf 'test-search-ranking: %d at baseline, %d worse, %d improved, %d mechanisms ok\n' \
-  "$pass" "$fail" "$improved" "$mpass"
-[ "$fail" = 0 ]
+# A failed mechanism assertion is counted apart from a ranking regression. Printing both under
+# `worse` read as "retrieval got worse", which is the one thing this script exists to say
+# without ambiguity, and it misled its own author on 2026-10-19.
+printf 'test-search-ranking: %d at baseline, %d worse, %d improved, %d mechanisms ok, %d mechanisms failed\n' \
+  "$pass" "$fail" "$improved" "$mpass" "$mfail"
+[ "$fail" = 0 ] && [ "$mfail" = 0 ]

@@ -122,15 +122,21 @@ awk -F'\t' -v v="$vault" '
 count_terms() {  # count_terms <term…> → writes $work/tf and $work/byname
   : > "$work/tf.raw"
   : > "$work/names.hit"
-  local t
+  local t tl
   for t in "$@"; do
+    # One label per term, lowercased, for both the text count and the name hit. `grep -icF` is
+    # already case-insensitive, so the count does not care — but the name hit was labelled with
+    # the lowercased term while the text count kept the term as typed, so for `Reconciler` the
+    # fold below had two keys and merged neither. The page then carried two rows for one term:
+    # it counted twice toward coverage, scored twice, and split its document frequency in two.
+    tl=$(printf '%s' "$t" | tr '[:upper:]' '[:lower:]')
     # -F because a term is a literal, not a pattern: with punctuation now stripped a bracket
     # can no longer reach grep and kill the term silently, and `v0.6.13` should not match
     # `v0x6x13`.
     grep -ricF --include='*.md' -e "$t" "${dirs[@]}" 2>/dev/null \
-      | awk -F: -v t="$t" '$NF > 0 { c = $NF; sub(/:[0-9]+$/, ""); printf "%s\t%s\t%s\n", $0, t, c }' \
+      | awk -F: -v t="$tl" '$NF > 0 { c = $NF; sub(/:[0-9]+$/, ""); printf "%s\t%s\t%s\n", $0, t, c }' \
       >> "$work/tf.raw" || true
-    awk -F'\t' -v t="$(printf '%s' "$t" | tr '[:upper:]' '[:lower:]')" \
+    awk -F'\t' -v t="$tl" \
       'index($2, t) > 0 { printf "%s\t%s\n", $1, t }' "$work/names" >> "$work/names.hit"
   done
   # Fold the name hits into the counts: +2 per term, and a page with no text count for that
@@ -144,6 +150,34 @@ count_terms() {  # count_terms <term…> → writes $work/tf and $work/byname
           for (p in byname) printf "%s\n", p > "/dev/stderr" }
   ' "$work/tf.raw" "$work/names.hit" > "$work/tf" 2> "$work/byname"
 }
+# Document frequency cannot police a term written in a script the vault does not use. Measured
+# against a real 219-page vault on 2026-10-19: its prose is English and Mandarin appears only in
+# quoted speech, 1.2% of all characters, so 2,340 of its 2,344 distinct Mandarin bigrams sit at
+# or under the rare cap. A Mandarin function word is therefore rarer in that vault than any
+# subject in it, and idf hands it the heaviest weight in the query — asked why storage keeps
+# filling up, the vault answered with the page that happens to say `現在` ("now") twenty-one
+# times, ahead of the page named for the subject. The floor could not fix that on its own: it
+# decides whether to answer at all, not which page wins once the answer is being written.
+#
+# So on the push path a term scores only if the vault is written in its script. Where that
+# leaves no term the whole query is kept instead and the floor refuses it, which is the same
+# silence by a shorter road. A question with no ASCII in it at all still reaches the character
+# bigram fallback below, exactly as it did before.
+#
+# This is the right way round for a vault whose prose is English. A vault whose prose is
+# Mandarin would need the test inverted, and nothing here measures which kind it is.
+#
+# The test is `LC_ALL=C grep`, not a case glob: a glob compares by collation, and under
+# en_US.UTF-8 a CJK character carries no collation weight, so it falls inside the range
+# space..tilde and every Mandarin term reads as ASCII.
+if [ "$require_rare" = 1 ]; then
+  keep=()
+  for t in "${terms[@]}"; do
+    printf '%s' "$t" | LC_ALL=C grep -qE '^[!-~]+$' && keep+=("$t")
+  done
+  [ "${#keep[@]}" -gt 0 ] && terms=("${keep[@]}")
+fi
+
 count_terms "${terms[@]}"
 
 # The fallback for a script with no word boundaries. A Mandarin, Japanese or Thai question

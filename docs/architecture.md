@@ -424,6 +424,36 @@ nothing, and a page that matched no such term is not listed. It applies only her
 answering page from rank 9 to absent), and when somebody asks the tool directly a weak answer
 beats silence, so the registered tool still returns whatever it finds.
 
+Both the floor and the scoring beneath it rest on document frequency, and df is a proxy for how
+much a term tells you that holds only while the query and the vault are written in the same
+script. Measured against a real 219-page vault on 2026-10-19: its prose is English and Mandarin
+appears only in quoted speech, 1.2% of all characters, so 2,340 of its 2,344 distinct Mandarin
+bigrams sit at or under the cap — 99.8% of them count as rare. For a question asked in Mandarin
+the floor is a no-op, and the scoring is worse than that: a Mandarin function word is rarer in
+such a vault than any subject in it, so idf hands it the heaviest weight in the query. Asked why
+storage kept filling up, that vault answered with the page that happens to say `現在` ("now")
+twenty-one times, ahead of the page named for the subject.
+
+So on the push path a term counts, toward the floor and toward the score, only if the vault is
+written in its script. 88% of real prompts over the length gate carry one; where none is left the
+whole query is kept and the floor refuses it, which is the same silence by a shorter road, and a
+question with no ASCII at all still reaches the bigram fallback as it always did. The cost is
+real and one-sided: a Mandarin-only question the fallback used to answer now gets silence on the
+push path, while the registered tool still answers it. This is the right way round for a vault
+whose prose is English; one whose prose is Mandarin would need the test inverted, and nothing
+measures which kind a vault is. The test is `LC_ALL=C grep` and not a shell glob, because a glob
+compares by collation and under `en_US.UTF-8` a CJK character carries no collation weight, so it
+falls inside the range space-to-tilde and every Mandarin term reads as ASCII.
+
+One term is one term however it was capitalised. The name hit was labelled with the lowercased
+term while the text count kept the term as the asker typed it, so a page matching both ways
+carried two rows for one term: it counted twice toward coverage, scored twice, and split its own
+document frequency between the two spellings. Nothing in the fixture showed it, because every
+question there and every page name is lowercase — the same blind spot that let the `grep -c`
+mock and the collation bug through. `scripts/test-search-ranking.sh` now asks one question in
+the capitalisation a person would use, and that assertion fails as `expected 1/1, got 2/1`
+against the old labelling.
+
 A **budget ladder**, which is OpenViking's: the full form at 2000 characters, then page
 addresses alone, then nothing. A result over budget is never truncated — a page quoted halfway
 through reads as the whole of what the page says, and the agent cannot tell the difference.
