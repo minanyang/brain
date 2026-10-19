@@ -32,9 +32,10 @@ n=$(printf '%s' "$in" | jq -r '.prompt | length' 2>/dev/null) || exit 0
 case "$n" in ''|*[!0-9]*) exit 0 ;; esac
 [ "$n" -ge 40 ] || exit 0
 
-# A slash command's arguments are the user's words, but the command name and its injected body
-# are not a question about the vault, and a pasted document is not one either.
-case "$prompt" in '<command-name>'*|'/'*) exit 0 ;; esac
+# A command's arguments are the user's words, but the command name and its injected body are
+# not a question about the vault. Both host spellings are listed because this script runs on
+# both: Claude Code writes `/brain:ingest`, Codex writes `$brain-ingest`.
+case "$prompt" in '<command-name>'*|'/'*|'$'*) exit 0 ;; esac
 
 # The budget ladder, which is OpenViking's: the richest form that fits, then addresses only,
 # then nothing. A result is never truncated to fit — a page quoted halfway through reads as the

@@ -68,7 +68,7 @@ After creating or registering a vault through Claude Code, run from this checkou
 ./scripts/install-codex.sh
 ```
 
-Restart Codex, open `/hooks`, and trust the two Brain hooks. Codex then installs the same six operations as `$brain-init`, `$brain-distill`, `$brain-ingest`, `$brain-query`, `$brain-lint`, and `$brain-clip`. Claude and Codex write their raw session digests separately under `sources/sessions/claude/` and `sources/sessions/codex/`; ingest folds both into the same wiki pages and brief. The installer does not backfill existing Codex sessions. Run `$brain-distill --all --days 30` explicitly if you want them included.
+Restart Codex, open `/hooks`, and trust the three Brain hooks — session start, session end, and the read side, which puts the vault pages a question needs in front of the agent without being asked. Untrusted, that third one simply never runs. Codex then installs the same six operations as `$brain-init`, `$brain-distill`, `$brain-ingest`, `$brain-query`, `$brain-lint`, and `$brain-clip`. Claude and Codex write their raw session digests separately under `sources/sessions/claude/` and `sources/sessions/codex/`; ingest folds both into the same wiki pages and brief. The installer does not backfill existing Codex sessions. Run `$brain-distill --all --days 30` explicitly if you want them included.
 
 The installer records its Codex transcript directories in `~/.brain/config.json`, adds a small `AGENTS.md` bridge to each registered vault, and preserves unrelated skills and hooks. Re-run it after updating this checkout. See [setup](docs/setup.md#codex) for custom `CODEX_HOME` and removal details.
 

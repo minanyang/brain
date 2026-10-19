@@ -83,7 +83,9 @@ jq --arg cmd "$command" '
   def install($event; $suffix; $timeout):
     .hooks[$event] = ([.hooks[$event][]? | .hooks |= map(select(.command != ($cmd + $suffix))) | select(.hooks | length > 0)]
       + [{hooks: [{type: "command", command: ($cmd + $suffix), timeout: $timeout}]}]);
-  install("SessionStart"; " start"; 10) | install("SessionEnd"; " end"; 3)
+  install("SessionStart"; " start"; 10)
+  | install("UserPromptSubmit"; " prompt"; 10)
+  | install("SessionEnd"; " end"; 3)
 ' "$hooks" > "$hooks.tmp"
 mv "$hooks.tmp" "$hooks"
 
@@ -111,4 +113,6 @@ EOF
   fi
 done < <(jq -r '.vaults[].path' "$BRAIN_CONFIG")
 printf 'Installed six Brain skills in %s\nHooks: %s\nShared routing: %s\n' "$skills_dir" "$hooks" "$BRAIN_CONFIG"
-printf 'Restart Codex; review and trust the two Brain hooks with /hooks. No backfill was started.\n'
+printf 'Restart Codex; review and trust the three Brain hooks with /hooks. No backfill was started.\n'
+printf 'The UserPromptSubmit one is the read side: it puts the vault pages a question needs in\n'
+printf 'front of the agent. Untrusted it simply never runs, and nothing else changes.\n'

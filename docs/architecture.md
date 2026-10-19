@@ -590,14 +590,17 @@ and a vault written by five versions is only as private as the weakest of them.
 
 ## Porting to another host
 
-Brain has integrations for Claude Code and Codex. A new host supplies the same four bindings:
+Brain has integrations for Claude Code and Codex. A new host supplies the same five bindings:
 
 1. **Skills.** Bind the shared operational skills to the host's discovery path and command syntax. Preserve the writer-lease and finish-script rules.
 2. **Schema.** Load `docs/schema.md` and the vault's shared `CLAUDE.md` through the host's instruction mechanism.
 3. **Transcripts.** Convert the host's format to the metadata and timestamped conversation entries consumed by the distiller. Use a unique host key so session ids cannot collide.
 4. **Trigger.** Wire the adapter to session start and end, with an explicit manual backfill operation.
+5. **Retrieval.** Wire the host's per-prompt event to `hooks/prompt-search.sh`. Nothing is reimplemented: that script and `scripts/search.sh` beneath it are shell, shared by both hosts, so the length gate, the rare-term floor and the budget ladder stay at the values that were measured once. A host with no per-prompt event still gets the brief and the skills; what it loses is the answer to the 1-in-56 problem, which is the whole of the read side.
 
-A native port packages exactly these: the host-specific files are `hooks/` and the extractor; everything else is shared.
+A native port packages exactly these: the host-specific files are `hooks/` and the extractor; everything else is shared. The fifth binding is why the ranking left the Claude Code hooks module — a TypeScript ranker could not have been the thing Codex runs, and two rankers would have drifted.
+
+What a port cannot assume is that an event behaves the same way. Claude Code's `PreCompact` can block a compaction but cannot add anything to one, so the post-compaction page list goes on `SessionStart` with `source=compact`; a host without that distinction simply never emits it. On Codex, `hooks.json` registers three Brain commands and each must be *trusted* by the user before it runs at all — an untrusted hook is a silent no-op, which is the right failure but means an install is not finished when the installer exits.
 
 ## Non-goals
 

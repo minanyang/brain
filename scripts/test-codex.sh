@@ -111,4 +111,29 @@ grep -q '^---$' "$work/codex-home/skills/brain-query/SKILL.md"
 ! grep -q '^argument-hint:' "$work/codex-home/skills/brain-query/SKILL.md"
 [ "$(grep -c '^<!-- brain-codex -->' "$work/vault/AGENTS.md")" = 1 ]
 printf 'ok repeatable install, existing hooks preserved, shared vault instructions\n'
+
+# The read side on the second host. Three managed hooks now, and the prompt one has to carry
+# the suffix the adapter dispatches on — a mismatch there is the defect that registered a tool
+# no hook answered, and it is silent in exactly the same way.
+jq -e '.hooks.UserPromptSubmit | length == 1' "$work/codex-home/hooks.json" >/dev/null
+jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith(" prompt")' "$work/codex-home/hooks.json" >/dev/null
+jq -e '.hooks.SessionStart[]?.hooks[]? | select(.command | endswith(" start")) | .command' \
+  "$work/codex-home/hooks.json" >/dev/null
+jq -e '.hooks.SessionEnd[0].hooks[0].command | endswith(" end")' "$work/codex-home/hooks.json" >/dev/null
+printf 'ok three managed Codex hooks, each on the suffix the adapter dispatches on\n'
+
+# The adapter runs the same prompt script Claude Code runs, so what is asserted here is the
+# dispatch and the two ways it must stay quiet: under the measured length gate, and on a Codex
+# command, whose `$brain-` spelling is not a question about the vault.
+export BRAIN_ROOT="$root"
+ask() { jq -nc --arg p "$1" --arg c "$work/project" '{prompt:$p,cwd:$c}' | "$root/hooks/codex-session.sh" prompt; }
+long='why did the acme billing reconciler double count a ledger entry in production'
+out=$(ask "$long")
+case "$out" in
+  ''|*'additionalContext'*) printf 'ok a Codex prompt over the gate reaches the search\n' ;;
+  *) printf 'FAIL Codex prompt adapter: %s\n' "$out" >&2; exit 1 ;;
+esac
+[ -z "$(ask 'why?')" ]
+[ -z "$(ask '$brain-ingest the pending sources for the acme billing vault now')" ]
+printf 'ok a short follow-up and a Codex command inject nothing\n'
 printf 'PASS Codex integration fixtures\n'
