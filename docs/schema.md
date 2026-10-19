@@ -43,7 +43,7 @@ volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts
 deprecated: false     # or "<date> — superseded by [[dir/page]]": kept for the record, read as history
 aliases: []           # other names for this page's subject, searched exactly as its own name is
-updated: 2026-08-21
+updated: 2026-08-21   # when this page's text last changed; when its claims were last checked is the newest (verified …) marker
 # generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: [sources/sessions/claude/2026-08-05-invoice-retry.md, sources/refs/2026-08-12-idempotent-workers.md]
 sources_cited: 2
@@ -216,7 +216,7 @@ Compiled from pages with `brief: true`: the page title, its opening summary, and
 ## Lint rules
 
 1. Unresolved `## Conflicts` older than 14 days.
-2. `volatile: true` pages not updated in 30 days. Pages carrying `deprecated:` are skipped: they are not meant to be updated.
+2. `volatile: true` pages whose claims were last checked over 30 days ago. The date is the newest `(verified <date>: …)` marker on the page, and `updated:` only where there is no marker — `updated:` says when the page's *text* changed, which an ingest appending one open thread bumps without re-verifying anything, so a page can read as fresh while every status on it is stale. The check date is derived rather than kept in a third frontmatter field, for the reason `sources:` is derived: a hand-kept date drifts from what it describes, and this one would drift towards looking checked. The report says which of the two it used, because the action differs — re-check the claims, or give them markers at all. Pages carrying `deprecated:` are skipped: they are not meant to be updated.
 3. Pages with no inbound links. Pages carrying `deprecated:` are skipped: having their links moved to the successor is what deprecating one does.
 4. Names appearing on ≥ 3 pages with no page of their own.
 5. Digests with `ingested: false` older than 2 days.

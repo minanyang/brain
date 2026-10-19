@@ -5,7 +5,8 @@
 #
 # Rules (numbers follow docs/schema.md "Lint rules"):
 #   1. [open] conflicts older than N days
-#   2. volatile: true pages not updated in N days
+#   2. volatile: true pages whose newest (verified <date>: …) marker, or `updated:` where
+#      there is none, is older than N days
 #   3. pages with no inbound [[links]] (index.md and brief.md do not count)
 #   5. sources still ingested: false after N days
 #   7. (→ human, …) claims present before the last ingest and absent after it
@@ -85,14 +86,30 @@ u=$( { grep -rc '^- \[unresolvable' $wiki_dirs 2>/dev/null || true; } | awk -F: 
 printf '\n'
 
 # 2
-printf '## 2. Volatile pages not updated in %s days\n' "$volatile_days"
+# `updated:` answers "when did this page's text last change", and this rule needs "when were
+# its claims last checked". They are not the same question and the gap is silent in the
+# direction that matters: an ingest that appends one open thread bumps `updated:` without
+# re-verifying anything, so a volatile page reads as fresh while every status on it is stale.
+#
+# The check date is derived from the page's own `(verified <date>: …)` markers rather than
+# written into a third frontmatter field, for the reason `sources:` is derived: a hand-kept
+# date drifts from what it describes, and here it would drift towards looking checked. A page
+# with no marker has nothing to derive from and falls back to `updated:`, which is the old
+# behaviour; the report says which of the two it used, because the action differs — re-check
+# the claims, or give them markers in the first place.
+printf '## 2. Volatile pages whose claims were last checked over %s days ago\n' "$volatile_days"
 n=0
 for f in $pages; do
   live "$f" || continue
   grep -q '^volatile: true' "$f" || continue
-  d=$(grep -m1 '^updated:' "$f" | awk '{print $2}'); [ -n "$d" ] || continue
+  c=$(grep -oE '\(verified [0-9]{4}-[0-9]{2}-[0-9]{2}' "$f" 2>/dev/null \
+    | awk '{print $2}' | LC_ALL=C sort | tail -1 || true)
+  if [ -n "$c" ]; then d="$c"; what="last verified"; else
+    d=$(grep -m1 '^updated:' "$f" | awk '{print $2}' || true); what="updated, and carries no marker to check"
+  fi
+  [ -n "${d:-}" ] || continue
   a=$(age_days "$d")
-  if [ "$a" -ge "$volatile_days" ]; then printf -- '- %s — updated %s (%s days)\n' "$f" "$d" "$a"; n=$((n+1)); fi
+  if [ "$a" -ge "$volatile_days" ]; then printf -- '- %s — %s %s (%s days)\n' "$f" "$what" "$d" "$a"; n=$((n+1)); fi
 done
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
