@@ -311,6 +311,39 @@ synthesis as a page: the tool is what gets read when nobody asked for a vault lo
 description says to read a page in full before stating facts about it, because the measured
 failure on "why was this decided" questions was an agent answering from a page's summary.
 
+Two things about the query are not about English. A question written in a script with no word
+boundaries — Mandarin, Japanese, Thai — is one whitespace token, so it greps as one long literal
+and matches nothing: `訂位超收是怎麼發生的？` returned zero candidates against a 190-page vault.
+When the terms return **zero candidates**, and only then, the query's CJK runs are cut into
+character bigrams, which is what Lucene's CJK analyser does. The trigger matters more than the
+mechanism: triggering on "no rare identifier" instead was measured on 2026-10-18 to take a
+question answered at rank 9 down to rank 43, because it fired on questions that were already
+working. On the zero-candidate trigger the fallback fired on 3 of 7 real questions, changed
+nothing that already had candidates, and moved three from absent to ranks 1, 8 and 4. The
+bigrams are filtered at a fifth of the vault — unfiltered, thirteen fragments of Mandarin
+function words outnumbered two English terms in one question and took it from rank 4 to 40 —
+and that ceiling is on the bigrams alone, because applying it to the ASCII terms dropped
+`production` and took the same question to absent, BM25's own idf being what already handles a
+term everything carries.
+
+And punctuation is a word boundary, which whitespace splitting does not know:
+`現在誰連得到 production 的 billingdb？` lost `billingdb` entirely, because the full-width question
+mark rode along and `billingdb？` is on no page — a question ending in the writer's own
+punctuation threw away its most distinctive term. The tokeniser now replaces punctuation with
+spaces by codepoint range, keeping `- _ . / :` because identifiers contain them, and the terms
+reach grep as fixed strings rather than patterns.
+
+Neither is a localisation. Code identifiers are English in every country — `BILL-412`,
+`CloudFront`, `endpoint` — so BM25 over identifiers is the globally right lane for this subject,
+and what breaks is the tokeniser, for which the fix is a known one with a bounded trigger. One
+consequence is worth recording because it cost an afternoon: **every `sort` and `uniq` in
+`scripts/search.sh` runs under `LC_ALL=C`**. BSD sort under `en_US.UTF-8` gives CJK characters no
+collation weight, so it reports 不出, 人工, 出去 and 簡訊 as equal and `uniq -c` folds the four
+into one group of four — which silently turned the bigram fallback off, the folded group looking
+like a term on four pages and being filtered out as too common. A deterministic rule written for
+one script failing open and silent on another is the same shape as Zep's future-tense
+normaliser, whose regexes for "will" and "plans to" match nothing in a Mandarin transcript.
+
 A tool in the list is still a tool that has to be chosen, and measured across 56 sessions where
 a vault lookup would have helped, it was invoked organically in 1. So the pages a question needs
 are now pushed as well: `hooks/prompt-search.sh` runs on `UserPromptSubmit`, searches the

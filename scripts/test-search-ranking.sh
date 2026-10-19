@@ -191,6 +191,61 @@ m "a page is found by its own name" "$(mech version train | head -1)" "topics/ve
 newvault; mpage topics/reconciler 0 ledger:1; mpage topics/aaa-links-here 0 reconciler:1 ledger:1
 m "a name hit breaks the tie before the path" "$(mech reconciler | head -1)" "topics/reconciler"
 
+
+
+# ---------------------------------------------------------------------------------------
+# The fallback for scripts with no word boundaries. Kept out of the frozen baselines above so
+# that adding it did not move them: these are mechanism assertions on their own vaults.
+#
+# Written as Mandarin because that is what the measurement was run in, but nothing here is
+# about Mandarin. A question in any script without spaces greps as one long literal and matches
+# nothing, and the fix is character bigrams — what Lucene's CJK analyser does. Japanese and Thai
+# go through the same path; a further script is one more codepoint range in search.sh.
+# ---------------------------------------------------------------------------------------
+cjkvault() {
+  newvault
+  mkdir -p "$w/topics"
+  printf -- '---\ntitle: Overbooking\ntype: topic\n---\n\n訂位超收的成因與處理。\n\n一行關於訂位超收的說明。\n一行關於超收上限的說明。\n' > "$w/topics/overbooking.md"
+  printf -- '---\ntitle: SMS routing\ntype: topic\n---\n\n簡訊送不出去的原因。\n\n一行關於人工審核的說明。\n一行關於簡訊路由的說明。\n' > "$w/topics/sms-routing.md"
+  printf -- '---\ntitle: No foreign keys\ntype: topic\n---\n\n資料庫不要外鍵的決定。\n\n一行關於外鍵的說明。\n' > "$w/topics/no-foreign-keys.md"
+  printf -- '---\ntitle: Prod db access\ntype: topic\n---\n\n誰連得到 production 的 billingdb。\n\n一行關於 billingdb 的說明。\n' > "$w/topics/prod-db-access.md"
+  # Function-word noise on most of the vault, so the bigrams 現在 and 得到 are too common to
+  # rank with. Unfiltered bigrams were measured to make ranking worse, not better: thirteen
+  # fragments of function words outnumbered the two English terms in one real question and
+  # took it from rank 4 to rank 40.
+  local i=1
+  while [ "$i" -le 14 ]; do
+    printf -- '---\ntitle: F%s\ntype: topic\n---\n\n現在的狀況說明。\n\n一行關於部署的說明。\n我們現在沒有得到結果。\n' "$i" \
+      > "$w/topics/filler-$i.md"
+    i=$((i + 1))
+  done
+}
+
+cjkvault
+m "a Mandarin question with no spaces finds its page" "$(mech '訂位超收是怎麼發生的？' | head -1)" "topics/overbooking"
+m "and so does a longer one" "$(mech '為什麼走人工審核的簡訊會送不出去' | head -1)" "topics/sms-routing"
+m "and one whose subject is a decision" "$(mech '我們為什麼決定資料庫不要外鍵？' | head -1)" "topics/no-foreign-keys"
+
+# The property the whole design rests on: the trigger is zero candidates, so a question whose
+# ASCII terms already match must come back exactly as it would have. Triggering on "no rare
+# identifier" instead was measured to take a question answered at rank 9 down to rank 43.
+m "a mixed question is decided by its identifiers, not by bigrams" \
+  "$(mech '現在誰連得到 production 的 billingdb？' | head -1)" "topics/prod-db-access"
+m "and the fallback leaves a pure-ASCII question alone" "$(mech billingdb | head -1)" "topics/prod-db-access"
+
+# Punctuation is a word boundary. Before this, the full-width question mark rode along on the
+# most distinctive term in the question and `billingdb？` was on no page.
+m "a term is not lost to the punctuation beside it" \
+  "$("$here/search.sh" --vault-path "$w" -- '用的是 billingdb？' | sed -n 's/^## \[\[\(.*\)\]\].*/\1/p' | head -1)" \
+  "topics/prod-db-access"
+
+# A question the vault has nothing about must still say so, naming what was asked rather than
+# the bigrams it tried.
+case "$("$here/search.sh" --vault-path "$w" -- '京都的拉麵店推薦' 2>&1)" in
+  *'No page mentions'*) m "a subject the vault lacks is said plainly" ok ok ;;
+  *) m "a subject the vault lacks is said plainly" "unexpected output" ok ;;
+esac
+
 printf 'test-search-ranking: %d at baseline, %d worse, %d improved, %d mechanisms ok\n' \
   "$pass" "$fail" "$improved" "$mpass"
-
+[ "$fail" = 0 ]
