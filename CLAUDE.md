@@ -26,8 +26,8 @@ docs/        architecture, schema, privacy, setup — the pattern
 templates/   vault skeleton and page templates, copied by /brain:init
 examples/    a fabricated vault (acme-billing) showing a month of output; hand-written to docs/schema.md, keep it in step with schema changes
 skills/      /brain:* skills (Agent Skills standard), one directory each: init, distill, ingest, query, lint, clip
-hooks/       hooks.json plus the three scripts it runs
-scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, memory-sync, init-vault, status, resolve-vault, ingest-prep, finish (shared by ingest/query/lint/clip), index, lint, ref, verify (status markers vs git), git-read (read-only git for agents), restated (every page repeating a claim), restore-page (bring a deleted page back from git), memory-pointer (point a memory note at the vault page that now holds its subject — the one write outside a vault)
+hooks/       hooks.json, register.ts (the hooks module), and the command-hook scripts it runs — including prompt-search.sh, which pushes the pages a question needs on UserPromptSubmit
+scripts/     deterministic parts: lib.sh (config, routing, lock), extract-transcript, secret-gate, distill, memory-sync, init-vault, status, resolve-vault, ingest-prep, finish (shared by ingest/query/lint/clip), index, lint, ref, verify (status markers vs git), git-read (read-only git for agents), restated (every page repeating a claim), restore-page (bring a deleted page back from git), memory-pointer (point a memory note at the vault page that now holds its subject — the one write outside a vault), search (the only BM25 implementation: both the registered tool and the prompt hook run it, so a second copy cannot drift and a host without the TypeScript engine can still retrieve)
 .claude-plugin/  plugin.json and marketplace.json
 ```
 

@@ -60,7 +60,8 @@ if [ "$mode" = meta ]; then
         | if test("<command-name>") then
             "/" + ((capture("<command-name>(?<c>[^<]*)</command-name>").c // "") | ltrimstr("/"))
             + " " + (capture("<command-args>(?<a>[^<]*)</command-args>").a // "")
-          else gsub("<system-reminder>(?:.|\\n)*?</system-reminder>"; "") end
+          else gsub("<brain-vault>(?:.|\\n)*?</brain-vault>"; "")
+               | gsub("<system-reminder>(?:.|\\n)*?</system-reminder>"; "") end
         | gsub("\\s+"; " ") | gsub("^ | $"; "")
         | gsub("^[\\[\\]#>*`_ -]+"; "")   # a pasted document opens with markdown, not a title
         | .[0:60]))
@@ -73,7 +74,13 @@ fi
 slice | jq -r -R '
   def clip($n): if length > $n then .[0:$n] + " […]" else . end;
   def ts: (.timestamp // "" | .[0:16] | sub("T"; " "));
-  def strip_reminders: gsub("<system-reminder>(?:.|\\n)*?</system-reminder>"; "") | gsub("^\\s+|\\s+$"; "");
+  # The <brain-vault> region holds what the UserPromptSubmit hook injected: vault pages, landing
+  # inside a user turn. Left in, a digest would quote them as words the user typed and ingest
+  # would file the vault back into itself as a session source — the loop 0.6.11 closed, arriving
+  # by a second door. Stripped before anything else reads the turn.
+  # (No apostrophes in here: this whole jq program is one single-quoted shell argument.)
+  def strip_reminders: gsub("<brain-vault>(?:.|\\n)*?</brain-vault>"; "")
+    | gsub("<system-reminder>(?:.|\\n)*?</system-reminder>"; "") | gsub("^\\s+|\\s+$"; "");
   def tool_summary:
     .name as $n
     | if $n == "Bash" then (.input.command // "" | clip(300))

@@ -311,6 +311,39 @@ synthesis as a page: the tool is what gets read when nobody asked for a vault lo
 description says to read a page in full before stating facts about it, because the measured
 failure on "why was this decided" questions was an agent answering from a page's summary.
 
+A tool in the list is still a tool that has to be chosen, and measured across 56 sessions where
+a vault lookup would have helped, it was invoked organically in 1. So the pages a question needs
+are now pushed as well: `hooks/prompt-search.sh` runs on `UserPromptSubmit`, searches the
+prompt, and returns `hookSpecificOutput.additionalContext`. Three things decide whether it says
+anything, and each exists because the first version of it was wrong.
+
+A **length gate** at 40 codepoints. Measured over 2,650 real interactive prompts since
+2026-10-01, the share carrying at least one term rare enough to rank anything runs 25% under 20
+characters, 53% at 20–39, 69% at 40–79, 96% at 80 and over — 88% at 40 and over. Under the gate
+a prompt is almost always a follow-up whose subject is in the turn above, not in its own words.
+The count is `jq`'s, in codepoints: `${#prompt}` counts bytes under a non-UTF-8 locale, which
+reads a 14-character Mandarin question as 42 and fires on it.
+
+A **rare-term floor**, which is `--require-rare-term` in the script. Without it the hook answered
+"how does the kafka consumer group rebalance itself on restart" — a subject the vault had never
+held — with a page matching 1 of 8 terms, because `the` is on every page; and it listed the
+answer followed by every other page carrying `the`, which teaches a reader that the vault is
+noise. The floor drops both: a query with no term on a fifth or less of the vault injects
+nothing, and a page that matched no such term is not listed. It applies only here. Filtering
+*terms* this way was measured harmful on 2026-10-18 (it dropped `production` and took an
+answering page from rank 9 to absent), and when somebody asks the tool directly a weak answer
+beats silence, so the registered tool still returns whatever it finds.
+
+A **budget ladder**, which is OpenViking's: the full form at 2000 characters, then page
+addresses alone, then nothing. A result over budget is never truncated — a page quoted halfway
+through reads as the whole of what the page says, and the agent cannot tell the difference.
+
+The injected text is wrapped in `<brain-vault>` … `</brain-vault>`, and
+`scripts/extract-transcript.sh` strips that region before anything reads the turn. This is not
+tidiness. An injected block lands inside the user's turn, so distill would quote the vault's own
+pages as the user's words and ingest would file the vault back into itself as a session source
+— the loop 0.6.11 was released to close, arriving by a second door.
+
 The session-start list is not a substitute for that tool, and a 120-run benchmark on
 2026-10-15 shows why. Five of its six questions the vault arm answered well (mean 2.14
 against 0.42, and one confidently wrong answer against nineteen); the sixth it answered no
