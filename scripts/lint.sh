@@ -23,6 +23,9 @@
 #      guess at which thread is finished
 #  14. pages deprecated longer than the window, or with a deprecated: value that does not
 #      say what superseded it
+#  15. a contested claim whose [contested …] mark and its ## Conflicts entry disagree:
+#      an open conflict with no mark in the body, one quoting a claim the body no longer
+#      carries, or a mark left on after the conflict was resolved
 # Rules 4 (names without a page) and 6 (brief vs built-in memory) need judgment; the
 # report ends with the inputs for them.
 set -euo pipefail
@@ -53,7 +56,13 @@ findings=0
 # A deprecated page is history on purpose (docs/schema.md). Rules 2 and 3 skip it: nobody is
 # going to update it, and its inbound links were moved to the successor when it was deprecated,
 # so reporting it as stale or orphaned is a weekly finding with no action behind it.
-deprecated_value() { grep -m1 '^deprecated:' "$1" | cut -d' ' -f2-; }
+# `|| true` because a page with no `deprecated:` line is the ordinary case and grep reports it
+# as failure. Without it, rule 14's bare `v=$(deprecated_value "$f")` took the whole script
+# down under `set -e` on the first such page — so rule 14 never produced a finding and
+# `## Summary` never printed at all, on any vault, since the rule was written. It survived
+# because the same call inside `live()` is reached as `live "$f" || continue`, and `set -e` is
+# suspended for a command in an `||` list, so every rule that tests deprecation that way worked.
+deprecated_value() { grep -m1 '^deprecated:' "$1" | cut -d' ' -f2- || true; }
 live() { v=$(deprecated_value "$1"); [ -z "$v" ] || [ "$v" = false ]; }
 
 printf '# Lint — %s — %s\n\n' "$(basename "$vp")" "$today"
@@ -251,7 +260,44 @@ for f in $pages; do
 done
 [ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
 
-printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9, 10, 12, 13, 14. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
+# 15
+# The conflict section is at the foot of the page and nobody answering a question from the body
+# reads it, so a contested claim has to say so where it sits. This rule is the mechanism behind
+# that rule: the schema can ask for the mark, but only a check keeps the mark and the entry from
+# drifting apart, and all three ways they drift are silent.
+printf '## 15. Contested claims whose mark and conflict entry disagree\n'
+n=0
+for f in $pages; do
+  live "$f" || continue
+  body=$(sed '/^## Conflicts$/,$d' "$f")
+  open_n=$(grep -c '^- \[open\]' "$f" 2>/dev/null || true)
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    d=$(printf '%s' "$entry" | grep -o '\[open\] [0-9-]*' | cut -d' ' -f2)
+    # The existing claim is the first quoted run on the entry. A prefix of it is matched rather
+    # than the whole, because a quote long enough to be unambiguous is also long enough to have
+    # been rewrapped since.
+    claim=$(printf '%s' "$entry" | sed -n 's/^[^"]*"\([^"]*\)".*$/\1/p' | cut -c1-40)
+    [ -n "$claim" ] || continue
+    hit=$(printf '%s' "$body" | grep -F -- "$claim" | head -1 || true)
+    if [ -z "$hit" ]; then
+      printf -- '- %s — the %s conflict quotes "%s…", which is no longer in the body: the page was rewritten under the entry, so re-quote it or resolve it\n' \
+        "${f#./}" "${d:-undated}" "$claim"; n=$((n+1))
+    elif ! printf '%s' "$hit" | grep -q '\[contested'; then
+      printf -- '- %s — the %s conflict is not marked in the body: add [contested %s] to the sentence saying "%s…"\n' \
+        "${f#./}" "${d:-undated}" "${d:-$(date +%Y-%m-%d)}" "$claim"; n=$((n+1))
+    fi
+  done < <(grep '^- \[open\]' "$f" 2>/dev/null || true)
+  # A mark left behind after a resolution is worse than no mark: it tells every later reader the
+  # claim is disputed when the human has already settled it.
+  if [ "${open_n:-0}" = 0 ] && printf '%s' "$body" | grep -q '\[contested'; then
+    printf -- '- %s — body carries [contested …] with no open conflict on the page: the conflict was resolved and the mark was left on\n' \
+      "${f#./}"; n=$((n+1))
+  fi
+done
+[ $n = 0 ] && printf '(none)\n'; findings=$((findings+n)); printf '\n'
+
+printf '## Summary\n%s finding(s) from rules 1, 2, 3, 5, 7, 8, 9, 10, 12, 13, 14, 15. Rules 4 and 6 need judgment — inputs below.\n\n' "$findings"
 
 printf '## Inputs for rule 4 (names on ≥ 3 pages with no page of their own)\nPages (%s): ' "$(printf '%s\n' "$pages" | grep -c .)"
 printf '%s\n' "$pages" | sed 's|\.md$||' | tr '\n' ' '; printf '\n\n'

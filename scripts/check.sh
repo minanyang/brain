@@ -120,6 +120,10 @@ if [ -x scripts/test-lint-threads.sh ]; then
   scripts/test-lint-threads.sh || fail=1
 fi
 
+if [ -x scripts/test-lint-conflicts.sh ]; then
+  scripts/test-lint-conflicts.sh || fail=1
+fi
+
 # Runs last because it is the slowest, and prints its per-question table even when it passes:
 # a rank that moved from 1 to 7 while every assertion stayed green is the thing worth seeing,
 # and an aggregate is exactly what hides it.
