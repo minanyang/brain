@@ -79,6 +79,18 @@ while [ "$i" -le 28 ]; do
   i=$((i + 1))
 done
 
+# Two pages declare an alias, which is the one field written for the search rather than the
+# reader: the vocabulary a question is likely to use and the page does not. The two questions
+# below that these answer were recorded as misses before the field existed, and their baselines
+# are what the field changed.
+alias_for() {  # alias_for <slug> <aliases…>
+  local slug="$1"; shift
+  local list; list=$(printf '%s, ' "$@"); list=${list%, }
+  sed -i '' "s|^type: topic\$|type: topic\\naliases: [$list]|" "$v/$slug.md"
+}
+alias_for topics/reconciler-double-count 'counted twice' 'double counting'
+alias_for topics/release-process 'shipping changes' 'rollout'
+
 pages=$(find "$v" -name '*.md' | wc -l | tr -d ' ')
 
 # rank <gold> <query…> → the gold page's 1-based position, or "absent".
@@ -131,8 +143,8 @@ check absent topics/reconciler-double-count 'EXPECTED MISS: one term, on all 40 
 # Vocabulary mismatch: the right page shares no word with the question. This is the class that
 # fails on a real vault, and the before-and-after for a second retrieval signal — a bigram
 # fallback for a query whose terms return nothing, and a page's own `aliases:` line.
-check absent topics/reconciler-double-count 'EXPECTED MISS: a sentence whose every word is absent from the page and its name' invoices counted twice
-check absent topics/release-process "EXPECTED MISS: a paraphrase sharing no word with the page's subject" shipping changes safely
+check 1 topics/reconciler-double-count 'vocabulary mismatch: no word of the question is in the page or its name — answered only by the page declaring `counted twice` as an alias, which is what that field is for' invoices counted twice
+check 1 topics/release-process "a paraphrase sharing no word with the page's subject, answered by its alias and by nothing else in the ranking" shipping changes safely
 
 # Printed on every run, per question, because an aggregate hides the mechanism: a documented
 # case in this field moved +0.070 overall while one category inside it moved +0.239.
@@ -142,12 +154,25 @@ awk -v f="$found" -v t="$total" -v r="$recip" 'BEGIN { printf "  recall@8 %.3f  
 
 
 
+# A fixture of winnable questions is a floor that never trips, so at least one question must
+# still be a known miss. Two of the three became hits when `aliases:` landed, which is the
+# fixture doing its job; the day the last one does, this fails and asks for a harder question
+# rather than quietly reporting a perfect score.
+mpass=0
+misses=$(grep -c "^check absent " "$here/test-search-ranking.sh")
+if [ "$misses" -ge 1 ]; then
+  printf '  ok the fixture still holds %s question(s) it is expected to fail\n' "$misses"
+  mpass=$((mpass + 1))
+else
+  fail=$((fail + 1))
+  printf '  FAIL the fixture has no expected miss left — add a harder question\n' >&2
+fi
+
 # ---------------------------------------------------------------------------------------
 # Mechanisms. Each is a defect the ranking once had, on a vault small enough that only the
 # one decision under test can explain the order. These were assertions in hooks/search.test.ts
 # against a mock of grep; they are here now because the mock disagreed with grep.
 # ---------------------------------------------------------------------------------------
-mpass=0
 m() { if [ "$2" = "$3" ]; then mpass=$((mpass + 1)); printf '  ok %s\n' "$1"; else fail=$((fail + 1)); printf '  FAIL %s — expected %s, got %s\n' "$1" "$3" "$2" >&2; fi; }
 
 mech() {  # mech <query…> → prints the ranked slugs, one per line

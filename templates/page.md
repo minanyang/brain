@@ -4,6 +4,7 @@ type: <me | person | project | decision | topic | vault-declared>
 brief: false
 volatile: false
 deprecated: false
+aliases: []           # other names a reader might search for that this page does not say
 updated: <YYYY-MM-DD>
 # generated — provenance.sh rewrites the two fields below from this page's own citations; hand edits are discarded
 sources: []
@@ -25,4 +26,6 @@ sources_cited: 0
      the evidence is required: a rejection without its reason is re-litigated. -->
 
 ## Conflicts
-<!-- dated pairs of contradicting claims; never resolved silently -->
+<!-- dated pairs of contradicting claims; never resolved silently.
+     The contested claim also carries [contested <date>] where it sits in the body: nobody
+     answering from the body reads this far down. -->

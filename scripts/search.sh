@@ -94,11 +94,26 @@ trap 'rm -rf "$work"' EXIT
 find "${dirs[@]}" -type f -name '*.md' 2>/dev/null | LC_ALL=C sort > "$work/pages"
 [ -s "$work/pages" ] || { printf 'No page mentions "%s".\n' "$first"; exit 0; }
 
-# One line per page: path, then the name as a reader means it — the slug and the slug with its
-# separators spelled as spaces, so `cross-midnight-hours` answers "cross midnight" too.
-awk -v v="$vault" '{ slug = substr($0, length(v) + 2); sub(/\.md$/, "", slug);
-  low = tolower(slug); flat = low; gsub(/[-\/]/, " ", flat);
-  printf "%s\t%s %s\n", $0, low, flat }' "$work/pages" > "$work/names"
+# Each page's `aliases:` line, in one grep over the whole vault rather than one per page: on a
+# 190-page vault the per-page form is 190 processes before any term has been counted. The value
+# is a YAML flow list, so the brackets, commas and quotes become spaces and what is left is
+# matched exactly as the name is.
+: > "$work/alias"
+tr '\n' '\0' < "$work/pages" | xargs -0 grep -H -m1 '^aliases:' 2>/dev/null \
+  | awk -F: '{ p = $1; sub(/^[^:]*:aliases:[[:space:]]*/, "", $0)
+      a = tolower($0); gsub(/[][",]/, " ", a); gsub(/[[:space:]]+/, " ", a)
+      sub(/^ /, "", a); sub(/ $/, "", a)
+      if (a != "" && a != "[]") printf "%s\t%s\n", p, a }' > "$work/alias" || true
+
+# One line per page: path, then the name as a reader means it — the slug, the slug with its
+# separators spelled as spaces, so `cross-midnight-hours` answers "cross midnight" too, and any
+# aliases the page declares, which are the vocabulary the page itself does not use.
+awk -F'\t' -v v="$vault" '
+  FILENAME == ARGV[1] { alias[$1] = $2; next }
+  { slug = substr($0, length(v) + 2); sub(/\.md$/, "", slug)
+    low = tolower(slug); flat = low; gsub(/[-\/]/, " ", flat)
+    printf "%s\t%s %s%s\n", $0, low, flat, ($0 in alias ? " " alias[$0] : "") }
+' "$work/alias" "$work/pages" > "$work/names"
 
 # One grep per term, counting how often each page says it, plus the pages whose name carries
 # it. A term in the page's own name is what the page is *about*, so it counts as two mentions
@@ -336,7 +351,7 @@ while IFS="$(printf '\t')" read -r _score named matched path; do
   if [ -n "$ex" ]; then
     printf '%s\n' "$ex"
   elif [ "$named" = 1 ]; then
-    printf "  (matched on the page's name; its text does not repeat it)\n"
+    printf "  (matched on the page's name or an alias; its text does not repeat it)\n"
   fi
 done < "$work/ranked"
 

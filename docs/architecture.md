@@ -333,6 +333,18 @@ punctuation threw away its most distinctive term. The tokeniser now replaces pun
 spaces by codepoint range, keeping `- _ . / :` because identifiers contain them, and the terms
 reach grep as fixed strings rather than patterns.
 
+What neither of those reaches is a question asked in words the page does not use — a plural it
+writes in the singular, a paraphrase, the English name of something it records in Mandarin. That
+is what a page's `aliases:` is for, and it is the one frontmatter field written for the search
+rather than the reader. An alias is matched exactly as the page's name is, so it earns the same
+two mentions and the same tie-break, and it composes with the bigram fallback rather than
+competing: a Mandarin alias is what those bigrams land on. Measured against
+`scripts/test-search-ranking.sh`, declaring two aliases took the fixture's two
+vocabulary-mismatch questions from absent to rank 1 and its recall@8 from 0.786 to 0.929, which
+is the whole of what those two questions were put there to measure. The cost is that an alias on
+the wrong page is a wrong answer with a name hit behind it, so the schema asks for a short list
+and never for a restatement of the name.
+
 Neither is a localisation. Code identifiers are English in every country — `BILL-412`,
 `CloudFront`, `endpoint` — so BM25 over identifiers is the globally right lane for this subject,
 and what breaks is the tokeniser, for which the fix is a known one with a bounded trigger. One
