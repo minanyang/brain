@@ -226,6 +226,14 @@ m "a term is one term however it was capitalised" \
   "$("$here/search.sh" --vault-path "$w" Reconciler | sed -n 's/.*(\([0-9]*\/[0-9]*\) terms)/\1/p' | head -1)" \
   "1/1"
 
+# The excerpt is the evidence for why a page is listed, and frontmatter is not evidence:
+# `title:` restates the name the reader already has, and `sources:` matches almost any question
+# because session filenames carry their own titles. On a real page two of the three quoted lines
+# were frontmatter and they took the whole character budget.
+newvault; mpage topics/reconciler 0 reconciler:3
+m "the quoted lines are body, not frontmatter" \
+  "$("$here/search.sh" --vault-path "$w" reconciler | grep -c 'title:')" "0"
+
 
 
 # ---------------------------------------------------------------------------------------

@@ -402,7 +402,15 @@ while IFS="$(printf '\t')" read -r _score named matched path; do
   page=${path#"$vault"/}; page=${page%.md}
   printf '\n## [[%s]]  (%s/%s terms)\n' "$page" "$matched" "${#terms[@]}"
   [ "$fmt" = context ] || printf '%s\n' "$(lead "$path")"
-  ex=$(grep -inF -m 3 -e "$first" "$path" 2>/dev/null | cut -c1-300 | sed 's/^/  /')
+  # Only the body. The excerpt is the evidence for why the page is listed, and a page with many
+  # sources answered with `title:`, which restates the name the reader already has, and with
+  # `sources:`, a provenance list that matches almost any question because session filenames
+  # carry their own titles — two of three quoted lines, and the whole 300-character budget.
+  fm=$(awk 'NR == 1 && $0 != "---" { f = 1; print 0; exit }
+            NR > 1 && $0 == "---" { f = 1; print NR; exit }
+            END { if (!f) print 0 }' "$path")
+  ex=$(grep -inF -e "$first" "$path" 2>/dev/null \
+    | awk -F: -v fm="$fm" '$1 > fm' | head -3 | cut -c1-300 | sed 's/^/  /')
   if [ -n "$ex" ]; then
     printf '%s\n' "$ex"
   elif [ "$named" = 1 ]; then
