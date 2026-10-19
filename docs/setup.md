@@ -73,12 +73,16 @@ Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at
 
 `finish.sh` and `/brain:init` set `BRAIN_FINISH=1` and are not gated: the checks exist to catch a commit made *around* the sanctioned write path, not the path itself.
 
-A vault created before this existed has no hook. The file is two lines, and they point at the plugin rather than copying the logic, so the validator travels with the plugin version instead of drifting from the rules it enforces:
+A vault created before this existed has no hook. Write one: it points at the plugin rather than copying the logic, so the validator travels with the plugin version instead of drifting from the rules it enforces, and it is **fail-open** — `claude plugin update` prunes the directory the old version lived in, and a shim that insisted on a missing file would make every commit in the vault fail, including the ones `finish.sh` makes.
 
 ```
 cd <your vault>
-printf '#!/usr/bin/env bash\nexec "$HOME/.claude/plugins/cache/brain/brain/<version>/scripts/vault-hook.sh"\n' \
-  > .git/hooks/pre-commit
+v="$HOME/.claude/plugins/cache/brain/brain/<version>/scripts/vault-hook.sh"
+{ printf '#!/usr/bin/env bash\n'
+  printf 'v=%s\n' "$v"
+  printf '[ -x "$v" ] || { printf "brain: validator missing at %%s — commit not checked\\n" "$v" >&2; exit 0; }\n'
+  printf 'exec "$v"\n'
+} > .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 

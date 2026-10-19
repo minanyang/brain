@@ -37,12 +37,20 @@ mkdir -p "$path"
 cd "$path"
 [ -d .git ] || git init -q
 
-# The pre-commit validator, as a two-line shim: the logic lives in the plugin and travels with
-# its version, because .git/hooks is not tracked and a copy there would drift from the rules it
+# The pre-commit validator, as a shim: the logic lives in the plugin and travels with its
+# version, because .git/hooks is not tracked and a copy there would drift from the rules it
 # enforces. Only written if nothing is there — an existing hook is somebody else's.
+#
+# It is fail-open on purpose. The path names a plugin version, and `claude plugin update` prunes
+# the directory the old one lived in, so a shim that insisted would make every commit in this
+# vault fail — including finish.sh's, which is the only sanctioned write path. A guard that can
+# brick the write path is worse than one that can be missing, so it says so and gets out of the
+# way.
 if [ ! -e .git/hooks/pre-commit ]; then
   { printf '#!/usr/bin/env bash\n# Managed by Brain. The logic is in the plugin so it travels with the version.\n'
-    printf 'exec %q\n' "$BRAIN_ROOT/scripts/vault-hook.sh"
+    printf 'v=%q\n' "$BRAIN_ROOT/scripts/vault-hook.sh"
+    printf '[ -x "$v" ] || { printf "brain: validator missing at %%s — commit not checked\\n" "$v" >&2; exit 0; }\n'
+    printf 'exec "$v"\n'
   } > .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
 fi
