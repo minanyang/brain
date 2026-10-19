@@ -614,6 +614,28 @@ A native port packages exactly these: the host-specific files are `hooks/` and t
 
 What a port cannot assume is that an event behaves the same way. Claude Code's `PreCompact` can block a compaction but cannot add anything to one, so the post-compaction page list goes on `SessionStart` with `source=compact`; a host without that distinction simply never emits it. On Codex, `hooks.json` registers three Brain commands and each must be *trusted* by the user before it runs at all — an untrusted hook is a silent no-op, which is the right failure but means an install is not finished when the installer exits.
 
+## The rules a mechanism had to carry
+
+Three of this pattern's rules are ones an agent negotiates with rather than forgets: that only a
+human resolves a conflict, that the generated files are generated, and that `sources/` is
+append-only. Each was prose in a skill, and prose is advice. `scripts/vault-hook.sh` is the
+mechanism — a vault's `.git/hooks/pre-commit` refuses a commit that breaks one — and it is
+Letta's precedent, a zero-dependency validator on the commit path, applied to the three
+invariants whose breach leaves nothing behind.
+
+Two details are the whole design. The hook in the vault is a **two-line shim** that execs the
+plugin's copy, because `.git/hooks` is not tracked: a validator copied in there would drift from
+the rules it enforces, which is the defect it exists to prevent. And `finish.sh` and
+`init-vault.sh` set `BRAIN_FINISH=1`, which skips every check — they legitimately rewrite the
+generated files and stage a human's resolution, and the first version of this blocked
+`init-vault.sh` itself. A mechanism that blocks the sanctioned write path is worse than none,
+because the first thing anyone does is take it off. `--no-verify` is left working for the same
+reason: the point is that skipping it is a decision rather than the default.
+
+What this does not reach is the Brain repository, whose invariants are different — fabricated
+data only, two manifests agreeing, a skill under its line cap — and already mechanised in
+`scripts/check.sh`. What that one still lacks is anything forcing `check.sh` to run.
+
 ## Non-goals
 
 - Embedding search. `index.md` plus grep is enough at hundreds of pages; revisit only when it stops being enough.

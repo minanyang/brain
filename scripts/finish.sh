@@ -109,7 +109,11 @@ else
   [ -n "$left" ] && printf 'left uncommitted (not this op'"'"'s to stage):\n%s\n' "$left" >&2
 fi
 if [ "$op" = ingest ]; then msg="ingest: $today — $n sources, $updated updated, $created created"; else msg="$op: $today — ${note:-$updated updated, $created created}"; fi
-git diff --cached --quiet || git commit -q -m "$msg"
+# BRAIN_FINISH tells the vault pre-commit validator that this is the sanctioned write path.
+# Its checks exist to catch a commit made *around* finish.sh — a hand-edited brief, a conflict
+# an agent resolved, a rewritten digest — and every one of those is something finish.sh does
+# legitimately: it regenerates the generated files, and it stages the resolution a human made.
+git diff --cached --quiet || BRAIN_FINISH=1 git commit -q -m "$msg"
 [ "$op" = ingest ] && git tag -f brain/last-ingest >/dev/null
 unlock "$vp"
 

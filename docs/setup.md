@@ -63,6 +63,25 @@ Whether the vault gets a remote is up to you (`git remote add origin <private re
 
 Answer the directory question with `~/Repos/acme/**`. New vaults are inserted at the **front** of the `vaults` list, so a specific vault added after a catch-all one takes precedence without editing anything. Reorder or add `exclude` globs in `config.json` by hand when the defaults are not right.
 
+### The pre-commit validator
+
+`/brain:init` installs one into the vault's `.git/hooks/pre-commit`. It refuses three commits, and `git commit --no-verify` overrides it if you mean to:
+
+- a hand edit to `index.md`, `brief.md` or `log.md`, which are generated and would be overwritten without a trace
+- a conflict re-prefixed `[resolved]` or `[unresolvable]` on a page that cites no human decision, because only a human settles one and the losing claim leaves nothing behind
+- a file under `sources/` that loses a line, because provenance is append-only and every page above it cites what it said
+
+`finish.sh` and `/brain:init` set `BRAIN_FINISH=1` and are not gated: the checks exist to catch a commit made *around* the sanctioned write path, not the path itself.
+
+A vault created before this existed has no hook. The file is two lines, and they point at the plugin rather than copying the logic, so the validator travels with the plugin version instead of drifting from the rules it enforces:
+
+```
+cd <your vault>
+printf '#!/usr/bin/env bash\nexec "$HOME/.claude/plugins/cache/brain/brain/<version>/scripts/vault-hook.sh"\n' \
+  > .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
 ## 3. Backfill what already exists
 
 ```

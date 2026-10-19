@@ -36,6 +36,16 @@ fi
 mkdir -p "$path"
 cd "$path"
 [ -d .git ] || git init -q
+
+# The pre-commit validator, as a two-line shim: the logic lives in the plugin and travels with
+# its version, because .git/hooks is not tracked and a copy there would drift from the rules it
+# enforces. Only written if nothing is there — an existing hook is somebody else's.
+if [ ! -e .git/hooks/pre-commit ]; then
+  { printf '#!/usr/bin/env bash\n# Managed by Brain. The logic is in the plugin so it travels with the version.\n'
+    printf 'exec %q\n' "$BRAIN_ROOT/scripts/vault-hook.sh"
+  } > .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+fi
 for d in sources/sessions/claude sources/sessions/codex sources/refs sources/memory me people projects decisions topics; do mkdir -p "$d"; [ -e "$d/.gitkeep" ] || : > "$d/.gitkeep"; done
 [ -e AGENTS.md ] || cp "$BRAIN_ROOT/templates/vault/AGENTS.md" AGENTS.md
 [ -e CLAUDE.md ] || cp "$BRAIN_ROOT/templates/vault/CLAUDE.md" CLAUDE.md
@@ -52,7 +62,9 @@ entry=$(jq -n --arg n "$name" --arg p "${path/#$HOME/~}" --args '{name: $n, path
 jq --argjson e "$entry" '.vaults = [$e] + (.vaults // [])' "$BRAIN_CONFIG" > "$BRAIN_CONFIG.tmp" && mv "$BRAIN_CONFIG.tmp" "$BRAIN_CONFIG"
 
 git add -A >/dev/null
-git diff --cached --quiet || git commit -q -m "init: vault created"
+# Marked like finish.sh: creating the vault writes the three generated files, which is exactly
+# what the pre-commit validator refuses from anything that is not a sanctioned write path.
+git diff --cached --quiet || BRAIN_FINISH=1 git commit -q -m "init: vault created"
 
 cat <<EOF
 vault '$name' at $path
