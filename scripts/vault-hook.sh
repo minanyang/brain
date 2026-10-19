@@ -9,13 +9,22 @@
 # non-zero exit is a mechanism. This is Letta's precedent (a zero-dependency validator on the
 # commit path) applied to the three invariants whose breach leaves no trace.
 #
-# It gates the staged tree only, so it has nothing to say about the working copy. `finish.sh`
-# is the sanctioned write path and sets BRAIN_FINISH=1, which skips every check here: those
-# checks exist to catch a commit made *around* finish.sh, not finish.sh itself. `--no-verify`
-# is git's own escape and is deliberately left working; a human who means it should not have to
-# fight the tooling, and the point is that skipping it is a decision rather than the default.
+# It gates the staged tree only, so it has nothing to say about the working copy.
+#
+# BRAIN_FINISH=1, set by finish.sh and init-vault.sh, exempts **two of the three checks and not
+# the third**, and that distinction is the whole value of the hook. A blanket exemption was the
+# first version and it was useless: finish.sh is the only sanctioned write path, so an agent
+# that resolves a conflict and then runs finish.sh is the exact scenario the conflict rule
+# guards against, and a guard that cannot fire on the main path is decoration. The two it does
+# exempt are things finish.sh legitimately does — regenerate the generated files, and flip a
+# source's `ingested:` line — and blocking those would block the write path itself, which is
+# worse than no guard because the first thing anyone does is take it off.
+#
+# `--no-verify` is git's own escape and is deliberately left working; a human who means it
+# should not have to fight the tooling, and the point is that skipping it is a decision rather
+# than the default.
 set -uo pipefail
-[ "${BRAIN_FINISH:-}" = 1 ] && exit 0
+finish="${BRAIN_FINISH:-}"
 
 fail=0
 say() { printf 'brain: %s\n' "$1" >&2; fail=1; }
@@ -25,6 +34,7 @@ staged() { git diff --cached --name-only --diff-filter=ACM -- "$@" 2>/dev/null; 
 #    index.sh and finish.sh, so a hand edit is overwritten on the next operation and the drift
 #    is invisible until someone reads a stale brief.
 for g in index.md brief.md log.md; do
+  [ "$finish" = 1 ] && break   # finish.sh is what regenerates them
   if [ -n "$(staged "$g")" ]; then
     say "$g is generated — finish.sh rebuilds it from the pages, so this edit will be overwritten. Unstage it and change the page instead."
   fi
@@ -49,6 +59,7 @@ done < <(staged '*.md')
 #    rewriting one re-writes the evidence every page above it cites. Appending is how distill
 #    continues a resumed session, so the check is on deleted lines, not on modification.
 while IFS= read -r line; do
+  [ "$finish" = 1 ] && break   # finish.sh flips a source's `ingested:` line, which deletes one
   [ -n "$line" ] || continue
   del=$(printf '%s' "$line" | awk '{print $2}')
   path=$(printf '%s' "$line" | cut -f3-)

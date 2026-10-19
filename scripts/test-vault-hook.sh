@@ -21,6 +21,7 @@ export GIT_AUTHOR_EMAIL=fixture@example.invalid GIT_COMMITTER_EMAIL=fixture@exam
 mkdir -p "$t/topics" "$t/sources/sessions"
 cd "$t"
 git init -q .
+printf 'err\n' > .git/info/exclude   # the test writes stderr beside the repo it is testing
 printf 'generated\n' > index.md
 printf 'generated\n' > brief.md
 printf 'generated\n' > log.md
@@ -48,6 +49,28 @@ undo
 printf 'regenerated\n' > brief.md; git add brief.md
 if BRAIN_FINISH=1 git commit -q -m 'finish' 2>"$t/err"; then ok "finish.sh writing the generated files is allowed"
 else bad "finish.sh writing the generated files is allowed" "$(cat "$t/err")"; fi
+
+# The check that must survive the exemption: finish.sh is the only sanctioned write path, so an
+# agent that resolves a conflict and then runs finish.sh is the scenario the rule exists for. A
+# blanket exemption made this unreachable, which is how the first version of the hook managed to
+# pass its own tests while guarding nothing that mattered.
+printf -- '---\ntitle: T\ntype: topic\nupdated: 2026-03-05\n---\n\nA page.\n\n## Conflicts\n- [resolved 2026-03-05] "one" — decided: one\n' > topics/a.md
+git add topics/a.md
+if BRAIN_FINISH=1 git commit -q -m 'resolve via finish' 2>"$t/err"; then
+  bad "finish.sh does not exempt the conflict rule" "the commit went through"
+else ok "finish.sh does not exempt the conflict rule"; fi
+undo
+
+# finish.sh flips a source's ingested: line, which deletes one, so that it must exempt.
+printf 'line one\nline three\n' > sources/sessions/a.md; git add sources/sessions/a.md
+if BRAIN_FINISH=1 git commit -q -m 'mark ingested' 2>"$t/err"; then ok "finish.sh may rewrite a source line"
+else bad "finish.sh may rewrite a source line" "$(cat "$t/err")"; fi
+undo
+# That commit left the digest two lines long. Put the third back before the append-only cases
+# below, which need a line to lose; a fixture that carries state between cases reports the next
+# one on the wrong evidence, which is what it did.
+printf 'line one\nline two\nline three\n' > sources/sessions/a.md
+git add sources/sessions/a.md; BRAIN_FINISH=1 git commit -q -m 'restore digest'
 
 # 2. Only a human resolves a conflict.
 printf -- '---\ntitle: T\ntype: topic\nupdated: 2026-03-05\n---\n\nA page.\n\n## Conflicts\n- [resolved 2026-03-05] "one" — decided: one\n' > topics/a.md

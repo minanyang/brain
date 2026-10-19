@@ -623,14 +623,27 @@ mechanism — a vault's `.git/hooks/pre-commit` refuses a commit that breaks one
 Letta's precedent, a zero-dependency validator on the commit path, applied to the three
 invariants whose breach leaves nothing behind.
 
-Two details are the whole design. The hook in the vault is a **two-line shim** that execs the
-plugin's copy, because `.git/hooks` is not tracked: a validator copied in there would drift from
-the rules it enforces, which is the defect it exists to prevent. And `finish.sh` and
-`init-vault.sh` set `BRAIN_FINISH=1`, which skips every check — they legitimately rewrite the
-generated files and stage a human's resolution, and the first version of this blocked
-`init-vault.sh` itself. A mechanism that blocks the sanctioned write path is worse than none,
-because the first thing anyone does is take it off. `--no-verify` is left working for the same
-reason: the point is that skipping it is a decision rather than the default.
+Three details are the whole design, and two of them are corrections to the first version.
+
+The hook in the vault is a **shim** that execs the plugin's copy, because `.git/hooks` is not
+tracked: a validator copied in there would drift from the rules it enforces, which is the defect
+it exists to prevent. The shim is **fail-open** — the path names a plugin version and
+`claude plugin update` prunes the old one's directory, so a shim that insisted would have failed
+every commit in the vault, `finish.sh`'s included.
+
+`BRAIN_FINISH=1`, set by `finish.sh` and `init-vault.sh`, exempts **two of the three checks and
+not the third**. A blanket exemption was the first version and it guarded nothing that mattered:
+`finish.sh` is the only sanctioned write path, so an agent that resolves a conflict and then runs
+it is the exact scenario the conflict rule exists for. The two it does exempt are things
+`finish.sh` legitimately does — regenerate the generated files, flip a source's `ingested:` line
+— and the first version of this blocked `init-vault.sh` creating a vault at all. A mechanism that
+blocks the sanctioned write path is worse than none, because the first thing anyone does is take
+it off; one that exempts it everywhere is decoration. `--no-verify` is left working for the same
+family of reasons: the point is that skipping it is a decision rather than the default.
+
+Run against a real 190-page vault on 2026-10-19, the conflict check named 9 of the 60 pages
+carrying a `[resolved]` or `[unresolvable]` entry as citing no human decision anywhere on the
+page.
 
 What this does not reach is the Brain repository, whose invariants are different — fabricated
 data only, two manifests agreeing, a skill under its line cap — and already mechanised in
