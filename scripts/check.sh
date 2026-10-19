@@ -81,13 +81,9 @@ if command -v claude >/dev/null; then
   # The hooks module's own tests. They existed and passed for weeks without being run here,
   # which made them documentation: the ranking they cover was changed three times on measured
   # evidence and nothing in the repository could have told that a change made it worse.
-  # The ranking fixture's per-question table is printed on every run even when it passes,
-  # because a rank that moved from 1 to 7 while the suite stayed green is the thing worth
-  # seeing, and an aggregate hides exactly that.
   out=$(mktemp "${TMPDIR:-/tmp}/brain-hooktest.XXXXXX")
   if claude plugin test . >"$out" 2>&1; then
     say "ok" "hook tests"
-    sed -n '/ranking fixture:/,/MRR/p' "$out"
   else
     say "FAIL" "hook tests"
     tail -30 "$out"
@@ -122,6 +118,13 @@ fi
 
 if [ -x scripts/test-lint-threads.sh ]; then
   scripts/test-lint-threads.sh || fail=1
+fi
+
+# Runs last because it is the slowest, and prints its per-question table even when it passes:
+# a rank that moved from 1 to 7 while every assertion stayed green is the thing worth seeing,
+# and an aggregate is exactly what hides it.
+if [ -x scripts/test-search-ranking.sh ]; then
+  scripts/test-search-ranking.sh || fail=1
 fi
 
 [ $fail = 0 ] && say "PASS" "all checks" || say "FAIL" "see above"

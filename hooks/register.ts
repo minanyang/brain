@@ -50,139 +50,25 @@ Answering such a question from general knowledge instead produces a confident wr
 which is the costlier failure: the vault exists because the user corrected those once already.
 Cite what you use as [[directory/page]].`
 
-const WIKI_DIRS = ['me', 'people', 'projects', 'decisions', 'topics']
-const MAX_PAGES = 8
-
-// The lead is the page's first paragraph after the frontmatter: what index.md quotes
-// and the one line that says whether this page is worth opening.
-const lead = (text: string): string => {
-  const body = text.replace(/^---\n[\s\S]*?\n---\n/, '')
-  return (body.split(/\n\s*\n/).find(p => p.trim() !== '') ?? '').replace(/\s+/g, ' ').trim()
-}
-
+// Ranking lives in scripts/search.sh, not here. It has been changed three times on measured
+// evidence, and a second copy of it in this file would be a seventh entry on the list in
+// docs/architecture.md of things two versions must agree on — the bug class that produced
+// 0.6.11. Keeping it in a script also means a host without this engine can still retrieve,
+// and that the fixture in scripts/test-search-ranking.sh exercises the real grep rather than
+// a mock of it; the mock this replaced disagreed with grep twice over.
 const search = async ($: EngineInterface, query: string): Promise<string> => {
-  const vault = await resolveVault($)
-  if (vault === undefined) return 'No Brain vault covers this directory, so there is nothing to search.'
-
-  const terms = query.split(/\s+/).filter(t => t.length >= 2).slice(0, 8)
-  const first = terms[0]
-  if (first === undefined) return 'Give at least one search term of two characters or more.'
-
-  const dirs = WIKI_DIRS.map(d => `${vault}/${d}`)
-
-  // A page's own name is nowhere in its text, so grep over contents alone answers the most
-  // obvious query with every page but the right one: searching `version-train` returned the
-  // page that links to [[topics/version-train]] and not the page itself. The path is part of
-  // what a reader means by a page's name, so it is searched too.
-  const { stdout: listed } = await $.process.run(
-    ['find', ...dirs, '-type', 'f', '-name', '*.md'],
-    { timeoutMs: 15000 },
+  const cwd = await $.session.cwd()
+  const { exitCode, stdout } = await $.process.run(
+    [`${$.plugin.root}/scripts/search.sh`, '--cwd', cwd, '--', query],
+    { timeoutMs: 30000 },
   )
-  const names = new Map<string, string>()
-  for (const file of listed.split('\n').filter(Boolean)) {
-    const slug = file.slice(vault.length + 1).replace(/\.md$/, '').toLowerCase()
-    // `topics/cross-midnight-business-hours` should answer "cross midnight" as well as the
-    // hyphenated form, so both spellings are matched against.
-    names.set(file, `${slug} ${slug.replace(/[-/]/g, ' ')}`)
+  // The script answers "no vault here" and "nothing matched" itself, in prose meant for the
+  // model, and exits 0 for both: a non-zero exit is the script failing, which is the one case
+  // worth translating.
+  if (exitCode !== 0 || stdout.trim() === '') {
+    return 'The vault search did not run. Read a page by path, or run /brain:query.'
   }
-
-  // One grep per term, counting how often each page says it. Ranking by the number of terms a
-  // page mentions at all cannot separate an ordinary question: measured against a 202-page
-  // vault, a three-word question about who reaches one production database put 38 pages on
-  // the identical score and the same question asked in a sentence put 25 there, because a
-  // word like `production` was on 138 of them. The tie then fell through to the path, which
-  // sorts `topics/` after every other directory, so the 137 pages holding most of that vault
-  // could not place in the top 8 at all and the page that answered was never returned.
-  const tf = new Map<string, Map<string, number>>()
-  const byName = new Set<string>()
-  for (const term of terms) {
-    const { stdout } = await $.process.run(
-      ['grep', '-ric', '--include=*.md', '-e', term, ...dirs],
-      { timeoutMs: 15000 },
-    )
-    const counted = new Map<string, number>()
-    for (const line of stdout.split('\n')) {
-      const cut = line.lastIndexOf(':')
-      if (cut < 1) continue
-      const n = Number(line.slice(cut + 1))
-      if (Number.isFinite(n) && n > 0) counted.set(line.slice(0, cut), n)
-    }
-    const t = term.toLowerCase()
-    for (const [file, name] of names) {
-      if (!name.includes(t)) continue
-      if (!counted.has(file)) byName.add(file)
-      // A term in the page's own name is what the page is *about*, so it counts as a mention
-      // the body would have had to repeat to earn.
-      counted.set(file, (counted.get(file) ?? 0) + 2)
-    }
-    for (const [file, n] of counted) {
-      const row = tf.get(file) ?? new Map<string, number>()
-      row.set(term, n)
-      tf.set(file, row)
-    }
-  }
-  if (tf.size === 0) return `No page mentions ${terms.map(t => `"${t}"`).join(' or ')}.`
-
-  // Page length, so that repetition on a short page about the subject outranks one mention
-  // apiece on a long page that touches everything.
-  const { stdout: sized } = await $.process.run(['wc', '-c', ...names.keys()], { timeoutMs: 15000 })
-  const length = new Map<string, number>()
-  for (const line of sized.split('\n')) {
-    const m = /^\s*(\d+)\s+(\S.*)$/.exec(line)
-    if (m?.[2] !== undefined && m[2] !== 'total') length.set(m[2], Math.max(Number(m[1]), 1))
-  }
-  const sizes = [...length.values()]
-  const avg = sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) / sizes.length : 1
-  const total = Math.max(names.size, tf.size, 1)
-  const df = new Map<string, number>()
-  for (const row of tf.values()) for (const term of row.keys()) df.set(term, (df.get(term) ?? 0) + 1)
-
-  // BM25, with its usual constants: a term on most pages separates nothing, a repeated term
-  // counts with diminishing return, and the length divisor is what keeps the long pages honest.
-  const K1 = 1.2
-  const B = 0.75
-  const score = new Map<string, number>()
-  for (const [file, row] of tf) {
-    let s = 0
-    for (const [term, n] of row) {
-      const d = df.get(term) ?? 1
-      const idf = Math.log(1 + (total - d + 0.5) / (d + 0.5))
-      s += (idf * n * (K1 + 1)) / (n + K1 * (1 - B + (B * (length.get(file) ?? avg)) / avg))
-    }
-    score.set(file, s)
-  }
-
-  // Where two pages score the same, the page *called* X answers "X" better than a page that
-  // merely links to it, so a name hit breaks the tie before the path does.
-  const rank = (f: string) => (byName.has(f) ? 1 : 0)
-  const ranked = [...tf.entries()]
-    .map(([file, row]) => [file, row.size] as const)
-    .sort(
-      (a, b) =>
-        (score.get(b[0]) ?? 0) - (score.get(a[0]) ?? 0) ||
-        rank(b[0]) - rank(a[0]) ||
-        a[0].localeCompare(b[0]),
-    )
-  const out: string[] = []
-  for (const [file, matched] of ranked.slice(0, MAX_PAGES)) {
-    const page = file.slice(vault.length + 1).replace(/\.md$/, '')
-    const text = await $.fs.read(file)
-    const { stdout: lines } = await $.process.run(
-      ['grep', '-in', '-m', '3', '-e', first, file],
-      { timeoutMs: 10000 },
-    )
-    // A page found by its name alone has no line to quote; saying so is what stops the
-    // empty excerpt reading as a page whose body has nothing to do with the question.
-    const excerpt = lines.split('\n').filter(Boolean).map(l => `  ${l.slice(0, 300)}`).join('\n')
-      || (byName.has(file) ? "  (matched on the page's name; its text does not repeat it)" : '')
-    out.push(`## [[${page}]]  (${matched}/${terms.length} terms)\n${lead(text)}\n${excerpt}`)
-  }
-  const more = ranked.length > MAX_PAGES ? `\n\n(${ranked.length - MAX_PAGES} further pages matched.)` : ''
-  // "204 of the vault's pages matched" was true and told the reader nothing, because a page
-  // that carries one common term is a match: what is worth saying is how many came back and
-  // that the rest scored lower.
-  const shown = Math.min(ranked.length, MAX_PAGES)
-  return `The ${shown} best of ${ranked.length} pages that mention any of these terms, highest first. Read one in full before stating facts about what it covers.\n\n${out.join('\n\n')}${more}`
+  return stdout.trimEnd()
 }
 
 // ---------------------------------------------------------------------------------------

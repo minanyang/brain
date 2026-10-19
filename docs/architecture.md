@@ -267,6 +267,24 @@ that registers a full-text search over the vault's five wiki directories as a to
 BM25 over those counts, at most 8 pages back, each as `[[directory/page]]` with its lead
 paragraph and three matching lines.
 
+The ranking itself is `scripts/search.sh`, not the module; the registered tool runs it and
+returns what it said. Two reasons, both of them scars. It was written in TypeScript first, and
+a copy of it would have been a seventh entry on the list below of what two versions must agree
+on — the class of defect that produced 0.6.11 twice in one week. And a ranking in the module
+can only be tested through a mock of the module's `process.run`: the mock that stood in for
+`grep` disagreed with it twice over — `grep -c` counts matching *lines* rather than
+occurrences, and a term matches as a substring, which is how `do` scores a page named
+`reconciler-double-count` — so the assertions it passed were about behaviour the search does
+not have. `scripts/test-search-ranking.sh` now generates a 40-page vault and runs the real
+script over it, with a frozen per-question baseline rank: the ranking had been changed three
+times on measured evidence (0.6.5 name hits, 0.6.7 BM25, 0.6.10 the match count) and each of
+those measurements was a hand-run against a real vault, so nothing in the repository could tell
+whether the next change made retrieval worse. The fixture is not evidence that the ranking is
+good — the corpus and questions are fabricated, so every gold page is gold by construction —
+and three of its questions are expected misses kept there on purpose, because a fixture of
+winnable questions is a floor that never trips. The third reason arrived later: a host without
+this engine can run the script, which is what "Porting to another host" below now needs.
+
 Ranking by the number of terms a page mentions at all was the first attempt and it does not
 work, which only shows on an ordinary question. Measured on 2026-10-15 against a 202-page
 vault: a question about who reaches one production database put 38 pages on the identical
