@@ -12,7 +12,7 @@
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-WIKI_DIRS="me people projects decisions topics"
+WIKI_DIRS="me people projects decisions topics procedures"
 MAX=8
 fmt=tool
 require_rare=0

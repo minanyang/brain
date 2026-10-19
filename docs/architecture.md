@@ -135,7 +135,7 @@ Properties that matter:
 
 ### ingest
 
-**Step 0 — collect human corrections.** The vault is a git repository and ingest is the only non-human process that commits wiki pages. After each ingest it moves the tag `brain/last-ingest`. Before the next ingest it runs `git diff brain/last-ingest -- me/ people/ projects/ decisions/ topics/` (plus any directories the vault declares) (working tree included, so an edit saved in Obsidian counts without a commit). Every hunk in that diff is a human edit. The hunks are handed to ingest as a source that outranks every digest, and the claims they carry are cited as `(→ human, YYYY-MM-DD)` when the page is rewritten.
+**Step 0 — collect human corrections.** The vault is a git repository and ingest is the only non-human process that commits wiki pages. After each ingest it moves the tag `brain/last-ingest`. Before the next ingest it runs `git diff brain/last-ingest -- me/ people/ projects/ decisions/ topics/ procedures/` (plus any directories the vault declares) (working tree included, so an edit saved in Obsidian counts without a commit). Every hunk in that diff is a human edit. The hunks are handed to ingest as a source that outranks every digest, and the claims they carry are cited as `(→ human, YYYY-MM-DD)` when the page is rewritten.
 
 Then, in batches of pending sources (oldest first, ~15 at a time, so that progress is committed and a long run can stop and resume):
 
@@ -613,6 +613,34 @@ Brain has integrations for Claude Code and Codex. A new host supplies the same f
 A native port packages exactly these: the host-specific files are `hooks/` and the extractor; everything else is shared. The fifth binding is why the ranking left the Claude Code hooks module — a TypeScript ranker could not have been the thing Codex runs, and two rankers would have drifted.
 
 What a port cannot assume is that an event behaves the same way. Claude Code's `PreCompact` can block a compaction but cannot add anything to one, so the post-compaction page list goes on `SessionStart` with `source=compact`; a host without that distinction simply never emits it. On Codex, `hooks.json` registers three Brain commands and each must be *trusted* by the user before it runs at all — an untrusted hook is a silent no-op, which is the right failure but means an install is not finished when the installer exits.
+
+## Why procedures are their own type
+
+The first five page types are all things to *read*. A `procedures/` page is run, and that one
+difference decides everything about its shape: a wrong `topics/` page misleads a reader who can
+weigh it against what they know, while a wrong procedure gets executed by someone who came to it
+precisely because they did not know.
+
+So a procedure is written only from a session that carried it out, and records `Last run <date>`
+against what — the same bar that keeps unverified status off a page, for the same reason. Its
+steps come from the session's **tool calls, not its prose**: what a session said it did and what
+it ran are different documents, and only one of them ran. That distinction is memU's two-slice
+split, and its failure is worth copying too — memU embeds only a skill's `name: description`
+line, so the body of its headline asset is the least retrievable thing it holds. Here the body
+is what grep sees, and `aliases:` is what covers the words the page does not use.
+
+The boundary that needs stating is against `topics/`. A topic holds why the process has the
+shape it does — who owns the pipeline, what the schedule is, why a gate exists — and the
+procedure holds only what to run. Split the other way, or duplicated, one of the two becomes the
+stale copy, which for an executed page is the failure mode that matters. `examples/vault` shows
+the pair: `topics/release-process` beside `procedures/deploy-acme-billing`, each pointing at the
+other and neither repeating it.
+
+One mechanical note, because it is the kind of thing that fails silently: `scripts/search.sh`
+holds the searchable directories as a literal list, so a type added to the schema and forgotten
+there is an entire directory the search cannot see, with no symptom but an answer that is not in
+the results. `scripts/test-search-ranking.sh` puts one page in each default directory and
+asserts all six come back.
 
 ## The rules a mechanism had to carry
 

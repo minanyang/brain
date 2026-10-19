@@ -54,7 +54,7 @@ if [ ! -e .git/hooks/pre-commit ]; then
   } > .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
 fi
-for d in sources/sessions/claude sources/sessions/codex sources/refs sources/memory me people projects decisions topics; do mkdir -p "$d"; [ -e "$d/.gitkeep" ] || : > "$d/.gitkeep"; done
+for d in sources/sessions/claude sources/sessions/codex sources/refs sources/memory me people projects decisions topics procedures; do mkdir -p "$d"; [ -e "$d/.gitkeep" ] || : > "$d/.gitkeep"; done
 [ -e AGENTS.md ] || cp "$BRAIN_ROOT/templates/vault/AGENTS.md" AGENTS.md
 [ -e CLAUDE.md ] || cp "$BRAIN_ROOT/templates/vault/CLAUDE.md" CLAUDE.md
 [ -e .gitignore ] || cp "$BRAIN_ROOT/templates/vault/gitignore" .gitignore

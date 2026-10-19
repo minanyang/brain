@@ -14,14 +14,14 @@ vault/
 │   │   └── codex/       Codex session digests
 │   ├── refs/            articles, links, documents handed over on purpose
 │   └── memory/          snapshots of the agent's built-in memory files, one per change
-├── me/ people/ projects/ decisions/ topics/   default page types; vaults may add more
+├── me/ people/ projects/ decisions/ topics/ procedures/   default page types; vaults may add more
 ├── index.md  log.md  brief.md
 └── .state/              per-machine, gitignored
 ```
 
 ## Page types
 
-The default set is `me`, `person`, `project`, `decision`, `topic`, mapping to the five directories above. A vault may declare additional page types — and additional source directories under `sources/`, such as a daily journal — in its `CLAUDE.md`:
+The default set is `me`, `person`, `project`, `decision`, `topic`, `procedure`, mapping to the six directories above. A vault may declare additional page types — and additional source directories under `sources/`, such as a daily journal — in its `CLAUDE.md`:
 
 ```markdown
 ## Page types
@@ -30,6 +30,16 @@ The default set is `me`, `person`, `project`, `decision`, `topic`, mapping to th
 
 Ingest treats a declared type exactly like a default one: a directory, an `index.md` group, a digest tag (`[company]`), and a `type:` value. Undeclared types are never invented; a fact that fits no type goes to `topics/`.
 
+### Procedures
+
+A `procedures/` page is the one page type that gets **executed** rather than read, and that changes what it has to carry. A wrong `topics/` page misleads a reader who can weigh it; a wrong procedure gets run.
+
+- **Only what has been done.** A procedure is written from a session that actually carried it out, and it records `Last run <date>` with what it was run against. A sequence nobody has executed is a plan, and plans stay in conversation — the same bar that keeps unverified status off a page, for the same reason.
+- **Three sections, in this order.** `## When` is the trigger, so a reader can tell in one line whether this is their situation. `## Steps` is numbered, each step citing its source and naming the exact command where there is one. `## Checking it worked` is how you know it finished — a procedure with no check is one whose failures are discovered later by somebody else.
+- **The steps come from the trace, not the prose.** What a session *said* it did and what its tool calls show are different documents, and the second is the one worth keeping. A digest records both; the procedure is written from the commands.
+- **A step that names a version or a path is a status claim** and carries a marker like any other: `(verified 2026-09-22: ~/Repos/acme a1b2c3d in origin/main)`. Procedures go stale in a way topics do not, because the command keeps working while doing something else; set `volatile: true` and lint rule 2 will ask when its claims were last checked.
+- **One procedure, one page.** Two ways of doing the same thing are a conflict, recorded like any other — not two pages, which is how a reader comes to run the abandoned one.
+
 ## Page frontmatter
 
 Every wiki page:
@@ -37,7 +47,7 @@ Every wiki page:
 ```yaml
 ---
 title: Payments service
-type: me | person | project | decision | topic   # or a type the vault declares
+type: me | person | project | decision | topic | procedure   # or a type the vault declares
 brief: false          # true → included when brief.md is compiled
 volatile: false       # true → lint flags claims older than 30 days
 locked: false         # true → ingest never rewrites this page; it may only append to ## Conflicts

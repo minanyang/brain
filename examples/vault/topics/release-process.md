@@ -11,7 +11,7 @@ sources: [sources/sessions/2026-09-05-daily-deploys.md, sources/sessions/2026-08
 sources_cited: 3
 ---
 
-How [[projects/acme-billing]] gets to production. Deploys are gated by the pipeline that [[people/platform-team]] owns, and the schedule changed on 2026-09-01; the schedule itself is written down in the repository (→ ~/Repos/acme-billing/docs/release.md).
+How [[projects/acme-billing]] gets to production. Deploys are gated by the pipeline that [[people/platform-team]] owns, and the schedule changed on 2026-09-01; the schedule itself is written down in the repository (→ ~/Repos/acme-billing/docs/release.md). What to actually run is [[procedures/deploy-acme-billing]] — this page is why the process has the shape it does, and keeping the commands on one page is what stops the two drifting.
 
 ## Pipeline
 

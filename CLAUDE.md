@@ -7,7 +7,7 @@ This repository is the public pattern and reference implementation. It must neve
 - Prose, code, file names, and commit messages are English.
 - No roadmap, decision log, or status section in the repo. Rationale belongs inline in `docs/architecture.md`, next to the thing it explains. Plans and open questions stay in conversation.
 - The README lists installation only for hosts that have been tested end to end. Other hosts get one sentence and a link to "Porting to another host".
-- The five default page types (`me/ people/ projects/ decisions/ topics/`) are situation-neutral; anything implying a particular job or employer belongs in a vault's `CLAUDE.md` as a declared type, not here.
+- The six default page types (`me/ people/ projects/ decisions/ topics/ procedures/`) are situation-neutral; anything implying a particular job or employer belongs in a vault's `CLAUDE.md` as a declared type, not here.
 - Commit messages: conventional, single line, no trailers. Commit only when asked.
 
 ## Writing a skill

@@ -11,6 +11,9 @@
 - [[people/platform-team]] — The platform team owns queues, the CI pipeline and, since 2026-09-01, the deploy calendar for every service including [[projects/acme-billing]].
 - [[people/priya-nair]] — Priya reviews most [[projects/acme-billing]] PRs and pushes for fixtures that look like production data.
 
+## procedures
+- [[procedures/deploy-acme-billing]] — What to run to put [[projects/acme-billing]] in production. [[topics/release-process]] is the shape of the thing — who owns the pipeline, what the schedule is, why the smoke test exists — and this page is only the commands; a step that turns out to need explaining belongs there, not here, so that neither page becomes the stale copy of the other.
+
 ## projects
 - [[projects/acme-billing]] — acme-billing (`~/Repos/acme-billing`) is the invoicing service: an invoice worker that consumes `invoices.pending` and calls the payments API, plus a nightly reconciler that matches invoices to payments.
 

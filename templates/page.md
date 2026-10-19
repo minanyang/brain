@@ -1,6 +1,6 @@
 ---
 title: <Title>
-type: <me | person | project | decision | topic | vault-declared>
+type: <me | person | project | decision | topic | procedure | vault-declared>
 brief: false
 volatile: false
 deprecated: false

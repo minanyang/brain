@@ -10,7 +10,7 @@ Keep this section short; promote anything general upstream.
 
 ## Page types
 
-Beyond the defaults (`me/ people/ projects/ decisions/ topics/`), this vault also uses:
+Beyond the defaults (`me/ people/ projects/ decisions/ topics/ procedures/`), this vault also uses:
 
 - (none yet — e.g. `company/` (type `company`): org units, processes, and internal systems of my employer)
 

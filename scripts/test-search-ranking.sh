@@ -246,6 +246,17 @@ cjkvault() {
   done
 }
 
+# Every default page type has to be in search.sh's WIKI_DIRS, and that list is hardcoded: a type
+# added to the schema and forgotten there is a whole directory the search cannot see, with no
+# symptom but an answer that is not in the results. One page per directory is enough to catch it.
+newvault
+for d in me people projects decisions topics procedures; do
+  mkdir -p "$w/$d"
+  printf -- '---\ntitle: T\ntype: topic\n---\n\nA lead.\n\nA line about zebracrossing here.\n' > "$w/$d/probe.md"
+done
+found=$(mech zebracrossing | wc -l | tr -d ' ')
+m "every default page directory is searched" "$found" "6"
+
 cjkvault
 m "a Mandarin question with no spaces finds its page" "$(mech '訂位超收是怎麼發生的？' | head -1)" "topics/overbooking"
 m "and so does a longer one" "$(mech '為什麼走人工審核的簡訊會送不出去' | head -1)" "topics/sms-routing"
