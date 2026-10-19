@@ -55,6 +55,30 @@ is "a 39-character prompt is under the gate" "$(run "$(printf 'reconciler ledger
 # 40 codepoints of Mandarin is 120 bytes, so a byte count would read this as over the gate.
 is "a short Mandarin prompt is measured in characters, not bytes" "$(run '為什麼對帳會重複計算？')" ""
 
+# The quoted-follow-up cases. Each is a real shape from the replay: the user quotes the
+# agent's own last output and adds a verdict, and the quote alone carries the prompt over a
+# character gate. The rare-term floor does not catch these either — pasted output is all file
+# paths, sizes and ticket ids, so it is the richest source of rare terms there is.
+is "a quoted paste with a short verdict is not searched" \
+  "$(run '「the reconciler double counted a ledger entry in production last week」keep it')" ""
+# Cut off mid-table, closed with the wrong bracket, or not closed at all: the forms a pasted
+# block actually arrives in, so an unclosed delimiter runs to the end of the prompt.
+is "an unclosed quoted paste is not searched" \
+  "$(run '「reconciler | ledger | double count | production | last week | 33G')" ""
+is "a paste closed with the wrong bracket is not searched" \
+  "$(run '「- .worktrees/reconciler (1.7G): the ledger double count run, nothing uncommitted.]')" ""
+is "a quoted block the prompt opens with is not searched" \
+  "$(run '> the reconciler double counted a ledger entry in production last week
+drop it')" ""
+
+# But a quote is not the whole prompt when the user asks something of their own after it. The
+# gate measures what is left, so a question that survives the strip is still answered.
+q='「ledger entry 2026-10-01」why did the reconciler double count that entry in production'
+case "$(ctx "$(run "$q")")" in
+  *'[[topics/reconciler-double-count]]'*) ok "a real question after a quote is still searched" ;;
+  *) bad "a real question after a quote is still searched" "it was gated out" ;;
+esac
+
 # A slash command's body is injected text, not a question about the vault.
 is "a slash command is not searched" "$(run '/brain:ingest reconciler ledger double count now')" ""
 

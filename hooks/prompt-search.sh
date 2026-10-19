@@ -38,9 +38,29 @@ cwd=$(printf '%s' "$in" | jq -r '.cwd // empty' 2>/dev/null)
 # subject is in the turn above and not in its own words, so searching it spends a grep to
 # inject the pages that answer the last question again.
 #
+# Length alone does not tell a question from a quote. A follow-up that pastes the agent's own
+# last output back and adds a two-word verdict ("可以刪", "先不要") clears a character gate on
+# the paste, and clears the rare-term floor too, because pasted output is the richest source of
+# rare terms there is — file paths, sizes, ticket ids. So the gate measures the prompt with its
+# quoted spans removed: what is left is the part the user wrote, and the 40 above applies to
+# that. Replayed over that corpus on 2026-10-19, 2,654 prompts by then: 824 cleared the raw
+# gate and 153 of those, 18.5%, hold a quote with nothing of the user's own beside it.
+#
+# An opening delimiter the prompt never closes runs to the end, because that is how a pasted
+# block arrives — cut off mid-table, closed with the wrong bracket, or not closed at all.
+#
+# This is the stricter of the two readings and its cost is measured, not hoped: about 30 of the
+# 153 are a short quote used as a noun inside a real question, and they are gated too. See
+# docs/architecture.md for why that trade is the right way round.
+#
 # jq counts codepoints; `${#prompt}` counts bytes under a non-UTF-8 locale, which would read a
 # 14-character Mandarin question as 42 and fire on it.
-n=$(printf '%s' "$in" | jq -r '.prompt | length' 2>/dev/null) || exit 0
+# (No apostrophes in here: this whole jq program is one single-quoted shell argument.)
+n=$(printf '%s' "$in" | jq -r '
+  .prompt
+  | gsub("「[^」]*」"; " ") | gsub("“[^”]*”"; " ") | gsub("\"[^\"]*\""; " ")
+  | sub("(?s)^[ \t]*[「“\">].*"; " ")
+  | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | length' 2>/dev/null) || exit 0
 case "$n" in ''|*[!0-9]*) exit 0 ;; esac
 [ "$n" -ge 40 ] || exit 0
 

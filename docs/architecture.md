@@ -371,12 +371,40 @@ step for the whole read side. `inject_brief` carries the same switch for the sam
 default moved when a benchmark said what it was worth, not when it felt ready. Three things decide whether it says
 anything, and each exists because the first version of it was wrong.
 
-A **length gate** at 40 codepoints. Measured over 2,650 real interactive prompts since
-2026-10-01, the share carrying at least one term rare enough to rank anything runs 25% under 20
-characters, 53% at 20–39, 69% at 40–79, 96% at 80 and over — 88% at 40 and over. Under the gate
-a prompt is almost always a follow-up whose subject is in the turn above, not in its own words.
-The count is `jq`'s, in codepoints: `${#prompt}` counts bytes under a non-UTF-8 locale, which
-reads a 14-character Mandarin question as 42 and fires on it.
+A **length gate** at 40 codepoints, applied to the prompt with its quoted spans removed.
+Measured over 2,650 real interactive prompts since 2026-10-01, the share carrying at least one
+term rare enough to rank anything runs 25% under 20 characters, 53% at 20–39, 69% at 40–79, 96%
+at 80 and over — 88% at 40 and over. Under the gate a prompt is almost always a follow-up whose
+subject is in the turn above, not in its own words. The count is `jq`'s, in codepoints:
+`${#prompt}` counts bytes under a non-UTF-8 locale, which reads a 14-character Mandarin question
+as 42 and fires on it.
+
+Raw length was the whole gate until 2026-10-19, and replaying a real prompt corpus through the
+hook showed what it misses. Of 824 prompts that cleared it, around a third of a 12-prompt sample
+were not questions at all but the agent's own last output quoted back with a verdict after it —
+the fabricated shape is `「 four caches that keep growing │ 33–36G │ waiting on you 」delete it` —
+and they drew pages keyed on whatever the paste happened to contain rather than on a subject: a
+page about how the user works, for a prompt whose own words were `delete it`. A paste clears a
+length gate on its own bulk, and it clears the rare-term floor below as well, because pasted
+output is the richest source of rare terms there is: file paths, byte sizes, ticket ids. This is
+the same failure the rare-term floor was added for — a page that is merely plausible teaches the
+reader that the vault is noise — arriving one level up, at the prompt rather than at the page.
+
+So the gate strips quoted spans (`「」`, `“”`, `"`) before counting, and an opening delimiter the
+prompt never closes runs to the end of it, because that is how a pasted block arrives: cut off
+mid-table, closed with the wrong bracket, or not closed at all. On the same corpus, grown to
+2,654 prompts by 2026-10-19, that gates 153 of the 824 — 18.5% — and four in five of those open
+with the quote.
+
+It is the stricter of two readings, and the cost was measured rather than assumed. Keeping short
+quoted spans brings back about 30 of the 153, and most of those are real questions whose subject
+sits inside the quote: `「the reconciler ran nine workers」why nine?`. But the same move lets
+back in `「open a ticket before any infrastructure work?」yes`, which is the noise class exactly.
+Nothing in the text separates the two except whether the remainder is a question or an assent,
+which is a word list per language and it rots. The asymmetry decides it instead: a gated question
+still has the registered tool and `/brain:query`, so what is lost is one unasked push, while a
+merely plausible page pushed unasked costs the credibility of every push, because the agent
+cannot tell which kind it received.
 
 A **rare-term floor**, which is `--require-rare-term` in the script. Without it the hook answered
 "how does the kafka consumer group rebalance itself on restart" — a subject the vault had never
