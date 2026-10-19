@@ -328,8 +328,33 @@ fi
 # the honest answer when the one statistic available cannot tell a subject from a question word.
 # The registered tool is unrestricted, exactly as it is for the floor itself: there, somebody
 # asked, and a weak answer they can see the weakness of beats silence.
-if [ "$require_rare" = 1 ] && [ -n "$rare" ]; then
-  rare=$(printf '%s\n' "$rare" | LC_ALL=C grep -E '^[!-~]+$' || true)
+#
+# A term that names a page, or that the page declares as an alias, counts whatever its script
+# and whatever its frequency. The ranker already holds a name hit to be worth two mentions and
+# to settle a tie ahead of path order, so naming is already the stronger evidence in this
+# design; the floor ignoring it was an inconsistency inside one mechanism. It is also the only
+# way a question asked wholly in another script reaches this path at all, now that document
+# frequency has been shown unable to police one: an `aliases:` entry is a person stating that
+# this word means this page, which is worth more than any statistic taken from the corpus, and
+# the page filter below then keeps only the pages that term names, so it cannot spray.
+#
+# An earlier form of this shipped nothing: on 2026-10-19 it was tried while scoring still let a
+# question word outrank a subject, and it turned a silence into three wrong pages. It is here
+# now because that scoring is fixed, measured again rather than assumed.
+# The union runs even when nothing cleared the frequency cap, because a subject common enough
+# to be above it is exactly the one worth naming a page after.
+if [ "$require_rare" = 1 ]; then
+  # Only a term outside the vault's own script. For a term inside it document frequency already
+  # works, and letting a common one in through the name door was measured twice to be wrong: the
+  # answer became the pages merely named for the term, because what distinguished which of them
+  # the question meant was in the other script and the scoring restriction above had dropped it.
+  # Silence was the better of those two, and this leaves it in place.
+  named=$(cut -f1 "$work/df" | LC_ALL=C grep -vE '^[!-~]+$' \
+    | awk -F'\t' 'NR == FNR { n = n " " tolower($2) " "; next } index(n, $0) { print }' \
+      "$work/names" - || true)
+  rare=$(printf '%s\n%s\n' \
+    "$(printf '%s\n' "$rare" | LC_ALL=C grep -E '^[!-~]+$' || true)" "$named" \
+    | awk 'NF' | LC_ALL=C sort -u)
 fi
 printf '%s\n' "$rare" | awk 'NF' | LC_ALL=C sort > "$work/rare"
 if [ -s "$work/rare" ]; then

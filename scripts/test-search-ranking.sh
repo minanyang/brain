@@ -234,6 +234,20 @@ newvault; mpage topics/reconciler 0 reconciler:3
 m "the quoted lines are body, not frontmatter" \
   "$("$here/search.sh" --vault-path "$w" reconciler | grep -c 'title:')" "0"
 
+# A question asked wholly in a script the vault does not write in reaches the push path only
+# through `aliases:`. Document frequency cannot police such a script — on a real vault 99.8% of
+# its Mandarin bigrams counted as rare — so the floor refuses the whole class, and an alias is
+# the one thing that outranks the statistic: a person stating that this word means this page.
+newvault
+i=1; while [ "$i" -le 12 ]; do mpage "topics/filler-$i" 0 ledger:1; i=$((i + 1)); done
+mpage topics/overbooking 0 overbooking:3
+sed -i '' 's|^type: topic$|type: topic\
+aliases: [訂位超收]|' "$w/topics/overbooking.md"
+m "a question in another script is answered through an alias" \
+  "$("$here/search.sh" --vault-path "$w" --require-rare-term 訂位超收是怎麼發生的 \
+     | sed -n 's/^## \[\[\(.*\)\]\].*/\1/p' | head -1)" \
+  "topics/overbooking"
+
 
 
 # ---------------------------------------------------------------------------------------

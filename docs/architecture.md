@@ -438,8 +438,20 @@ So on the push path a term counts, toward the floor and toward the score, only i
 written in its script. 88% of real prompts over the length gate carry one; where none is left the
 whole query is kept and the floor refuses it, which is the same silence by a shorter road, and a
 question with no ASCII at all still reaches the bigram fallback as it always did. The cost is
-real and one-sided: a Mandarin-only question the fallback used to answer now gets silence on the
-push path, while the registered tool still answers it. This is the right way round for a vault
+real and one-sided, and `aliases:` is what buys it back: a term outside the vault's script
+counts toward the floor when it names a page or appears in that page's `aliases:`, whatever its
+frequency, and the page filter then keeps only the pages that term names, so it cannot spray. An
+alias is a person stating that this word means this page, which outranks any statistic taken from
+a corpus that barely contains the word. Without it the whole class is silent, and a vault with no
+aliases written is exactly that.
+
+The same door was tried for terms *inside* the vault's script and measured wrong twice, on
+2026-10-19 and again on 2026-10-20. Letting a common term through because it happens to name a
+page turned a silence into the set of pages merely named for it — three of them, none the one
+asked about — because what distinguished which of them the question meant was in the other script
+and the restriction above had already dropped it. Silence was the better of those two, so the
+door stays shut on that side. Fixing it properly needs a closed-class list of the other script's
+function words, which document frequency cannot stand in for; nothing here has one. This is the right way round for a vault
 whose prose is English; one whose prose is Mandarin would need the test inverted, and nothing
 measures which kind a vault is. The test is `LC_ALL=C grep` and not a shell glob, because a glob
 compares by collation and under `en_US.UTF-8` a CJK character carries no collation weight, so it
