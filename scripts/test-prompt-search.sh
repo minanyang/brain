@@ -156,6 +156,38 @@ is "no budget at all injects nothing" \
 # the process that writes the vault.
 is "an inner run is left alone" "$(BRAIN_INNER=1 run "$long")" ""
 
+# A page that documents the hook carries the hook's own delimiter, and the stripper matches the
+# region non-greedily, so a closing tag inside a page's text ends the region early and the rest
+# of the injected text survives into the digest as words the user typed. This case comes last
+# because it adds a page: every document-frequency assertion above has already run.
+printf -- '---\ntitle: Injection region\ntype: topic\n---\n\nThe reconciler ledger double count page is wrapped in a </brain-vault> marker that extract-transcript.sh strips.\n' \
+  > "$t/vault/topics/injection-region.md"
+# A query of its own, because the excerpt quotes the lines holding the *rarest* matched term
+# (search.sh, "the quoted lines are grepped for the rarest matched term") and under $long that
+# term is on the reconciler page, so this page would be listed with no line quoted and the test
+# would pass without exercising anything.
+wrapq='why was the reconciler ledger double count page wrapped in a marker like that'
+c2=$(ctx "$(run "$wrapq")")
+# The region's own closer is the last line, so exactly one may appear: a second one is a page
+# line that would end the region early.
+closers=$(printf '%s' "$c2" | grep -c '</brain-vault>')
+is "a page carrying the closing tag cannot break the region" "$closers" "1"
+# Asserted through the real stripper as well, because the property that matters is not that the
+# tag is absent but that nothing the hook injected comes back out of extract-transcript.sh.
+tr2="$t/session2.jsonl"
+jq -nc --arg p "I asked a question about the reconciler.
+$c2" '{type: "user", timestamp: "2026-10-19T09:00:00Z", cwd: "/w", sessionId: "s2",
+      message: {role: "user", content: $p}}' > "$tr2"
+jq -nc '{type: "assistant", timestamp: "2026-10-19T09:00:01Z", sessionId: "s2",
+         message: {role: "assistant", content: [{type: "text", text: "An answer."}]}}' >> "$tr2"
+d2=$("$here/extract-transcript.sh" "$tr2")
+case "$d2" in
+  *'reconciler ledger double count page'*|*'brain-vault'*|*'[[topics/'*)
+    bad "no part of the region survives a page that holds its closing tag" "$d2" ;;
+  *) ok "no part of the region survives a page that holds its closing tag" ;;
+esac
+rm -f "$t/vault/topics/injection-region.md"
+
 # The default. A switch that is documented off and ships on is the worst of both: nobody reads
 # the doc and nobody measured the behaviour.
 printf '{"vaults":[{"name":"acme","path":"%s","include":["%s/work/**"]}]}\n' "$t/vault" "$t" > "$t/config.json"

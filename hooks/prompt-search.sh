@@ -94,6 +94,16 @@ if [ "${#out}" -gt "$BUDGET" ]; then
 fi
 [ -n "$out" ] || exit 0
 
+# The delimiter cannot appear in the text it delimits. A page that documents this hook carries
+# the hook's own marker in its prose, and extract-transcript.sh matches the region non-greedily,
+# so a closing tag inside a quoted page line ends the region at that line and everything after
+# it comes back out of the digest as words the user typed — the same loop the region exists to
+# close, opened from the inside. Dropping the marker costs a page documenting Brain a string in
+# its excerpt; leaving it in costs the vault its own prose back as a session source.
+open='<brain-vault>' close='</brain-vault>'
+out=${out//"$close"/}
+out=${out//"$open"/}
+
 # The marker is what keeps this out of the vault. An injected block lands inside the user's
 # turn, and distill reads that turn as the user's own words, so without a region it can strip
 # the vault's own prose would come back as a session source and be re-filed as something the
