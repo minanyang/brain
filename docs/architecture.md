@@ -764,9 +764,45 @@ What this does not reach is the Brain repository, whose invariants are different
 data only, two manifests agreeing, a skill under its line cap — and already mechanised in
 `scripts/check.sh`. What that one still lacks is anything forcing `check.sh` to run.
 
+## Whether the injection lands
+
+Both injection channels put pages in front of the agent unasked, and until something counted it
+neither could be told from the other: `hooks/prompt-search.sh` says in its own comment that the
+failure is silent either way, because nothing in a transcript separates an injection that helped
+from one that was ignored or that misled. `scripts/credit-stats.sh` is that count. It reads
+finished transcripts rather than hooking the end of a turn, which is the whole reason it is a
+script: the host writes the assistant message *after* the end-of-turn hook has run, so a citation
+measured live is not on disk yet when the hook looks, and the undercount reads as the instruction
+failing rather than as the clock. It reports three things per injected session or turn — whether
+the answer carried a citation marker, whether it named an injected page at all, and whether it
+opened one with `Read`. The third is reported against the second on purpose: an answer can name a
+page to satisfy a rule instead of because it opened one, and an instrument blind to that is
+measuring compliance with itself.
+
+The first run of it, over every transcript holding a brief: **411 sessions, 5,904,630 characters
+injected (mean 14,366 per session), 10,475 page addresses offered (mean 25.6), a page named in 4
+sessions and opened in 2.** Uptake is half a percent, and that is not a Brain number — Vectorize
+publish the same figure for Hindsight from the opposite mechanism, 7 searches in 1,360 user turns,
+where theirs asks the agent to go and look and this one hands it the list.
+
+Set against the quality measurement, which says the injected arm scores 2.14 against 0.42 and
+costs 20 % *less* per run, the two readings do not disagree; they measure different populations.
+The benchmark asks only questions the vault answers, and on those the channel earns its keep
+several times over. Half a percent is the rate at which real sessions ask such a question. The
+cost is paid on every session and the benefit arrives on a fraction of them, and no number in this
+repository had expressed that until the denominator came from transcripts instead of from a
+question set.
+
 ## Non-goals
 
-- Embedding search. `index.md` plus grep is enough at hundreds of pages; revisit only when it stops being enough.
+- Embedding search. BM25 over the pages is enough at hundreds: scored against the pages a human
+  had already named as holding each answer, it finds one in the top three for two questions in
+  three where a naive term-ranked `grep` manages one in nine, and it does so twenty times faster.
+  Grep alone is *not* enough, which is the half of this line that was assumed until it was run;
+  what the measurement settles is that the gap between ranking and no ranking is already large
+  enough that the gap between ranking and embeddings need not be bought. Revisit only when BM25
+  stops being enough — and measure `grep` in the same harness again when revisiting, because a
+  baseline that borrows the thing under test measures nothing.
 - A UI. Obsidian or any markdown viewer works on the vault as-is.
 - A scheduler. Hooks piggyback on actual usage; a day with no sessions needs no run.
 - A second host before it has been tested end to end.
@@ -774,3 +810,15 @@ data only, two manifests agreeing, a skill under its line cap — and already me
 ## Cost model
 
 Distill: a few thousand tokens per session with a small model — negligible. Ingest: one agentic run over the pending digests whenever the user invokes it, reading a handful of pages — on the order of a few interactive turns. Lint: weekly-ish. The whole system costs less per day than one real conversation.
+
+The injection is the part that is paid for on every session rather than when invoked, and it is
+larger than this section used to imply: measured over 411 sessions, the brief came to 5,904,630
+characters, a mean of 14,366 each. What that buys is measured separately and in the other
+direction — on the benchmark's own questions the injected arm needs 7.3 turns and 6.3 tool calls
+against 11.1 and 10.1 without it, which is 20 % *less* money per run, because a page handed over
+is cheaper than the same fact dug out of the repository. The channel is not free and it is not a
+net cost; which of the two it is on any given day depends on whether the day's questions are ones
+the vault answers. `scripts/credit-stats.sh` is where that fraction is read, and
+`bench-analyze.sh` prints cost beside score so the comparison cannot be made on quality alone —
+`runs.tsv` had carried `cost_usd` from the first run and nothing printed it, so every verdict
+before this one compared arms that cost different amounts as though they had cost the same.
