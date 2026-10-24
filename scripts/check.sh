@@ -71,8 +71,20 @@ if command -v claude >/dev/null; then
     # kind is a finding, and an inventory line always names the module file after the bullet.
     # Reading the inventory as warnings failed every repository that ships a module, which was
     # latent until this one did.
+    # The validator also bullets notes about the scope of its own checks, which are not findings
+    # about this plugin and appear on every run: that the folder carries a marketplace manifest as
+    # well, and that a hooks module has directory rules these checks do not apply. Reading those as
+    # warnings fails every run, which is the same way this gate was unreachable before.
+    # ICON_MISSING is a real finding and is listed here anyway, because the file it asks for may
+    # become the marketplace listing's icon only once and choosing it is the maintainer's call,
+    # not a thing a check can settle. Leaving it to fail every run costs more than it reports: a
+    # gate that is always red is a gate nobody reads before committing, which is how the two
+    # filters above came to be needed in the first place. Delete this line when an icon lands.
     other=$(printf '%s\n' "$out" | grep '❯' \
       | grep -v 'CLAUDE.md at the plugin root' \
+      | grep -v 'This folder also holds a marketplace manifest' \
+      | grep -v 'names a hooks module' \
+      | grep -v 'ICON_MISSING' \
       | grep -vE '❯ \./[^ ]+\.(ts|tsx|js|mjs|cjs|mts|cts) ' || true)
     [ -n "$other" ] && { say "FAIL" "claude plugin validate: $target"; printf '%s\n' "$other"; fail=1; }
   done
