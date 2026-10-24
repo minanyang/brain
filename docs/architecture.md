@@ -800,7 +800,10 @@ question set.
   three where a naive term-ranked `grep` manages one in nine, and it does so twenty times faster.
   Read the ratio and not the rate: most of those labels are outside their freshness budget, and a
   stale label makes an absolute hit rate wrong while leaving a comparison between two adapters
-  intact, because both are scored against the same labels and a label's error lands on both.
+  intact, because both are scored against the same labels and a label's error lands on both. On
+  the four labels that are inside their budget the ratio holds and the rate is higher — three in
+  four against one in four — and the two populations disagree about the rate by more than they
+  disagree about the ranking, which is the whole argument for quoting the one and not the other.
   Grep alone is *not* enough, which is the half of this line that was assumed until it was run;
   what the measurement settles is that the gap between ranking and no ranking is already large
   enough that the gap between ranking and embeddings need not be bought. Revisit only when BM25
