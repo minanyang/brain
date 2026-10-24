@@ -798,6 +798,9 @@ question set.
 - Embedding search. BM25 over the pages is enough at hundreds: scored against the pages a human
   had already named as holding each answer, it finds one in the top three for two questions in
   three where a naive term-ranked `grep` manages one in nine, and it does so twenty times faster.
+  Read the ratio and not the rate: most of those labels are outside their freshness budget, and a
+  stale label makes an absolute hit rate wrong while leaving a comparison between two adapters
+  intact, because both are scored against the same labels and a label's error lands on both.
   Grep alone is *not* enough, which is the half of this line that was assumed until it was run;
   what the measurement settles is that the gap between ranking and no ranking is already large
   enough that the gap between ranking and embeddings need not be bought. Revisit only when BM25
