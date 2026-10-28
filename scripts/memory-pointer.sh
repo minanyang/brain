@@ -3,12 +3,14 @@
 #
 #   memory-pointer.sh --note <path> --page <dir/page> [--page <dir/page>…] [--vault <name>]
 #
-# The agent reads its own `<transcript root>/<project>/memory/*.md` before anything else and
+# The agent often opens its own `<transcript root>/<project>/memory/*.md` early and, when it does,
 # treats what it finds there as sufficient. Measured on 2026-10-15 against a question whose
 # answer was on a page checked that same day: five different session-start briefs reached the
-# page in 0 of 19 runs, because every run read its own note first and stopped. One line in the
-# note itself, naming the page, took it to 4 of 4 — so the pointer belongs where the agent
-# already looks, not in a paragraph it reads once.
+# page in 1 of 19 runs, and the one hit came from a brief that named the page outright, which
+# cannot ship (the other four: 0 of 15). One line in the note itself, naming the page, took it
+# to 6 of 8 as this script writes it and 4 of 4 hand-written (2026-10-16), and every run that
+# opened the note with the line in it reached the page — so the pointer belongs where the agent
+# already looks, not in a paragraph it reads once. It cannot help a run that never opens the note.
 #
 # The line is replaced, never duplicated: everything from the `<!-- brain:vault -->` marker to
 # the end of the file belongs to this script, and `memory-sync.sh` strips that region before
@@ -47,9 +49,10 @@ for page in "${pages[@]}"; do
   # The page's own `updated:` is the honest date: it is when the claims were last established,
   # not when this pointer happened to be written.
   on=$(grep -m1 '^updated:' "$f" | cut -d' ' -f2- || true)
-  # The page's own section headings, which is what makes the pointer worth following: told only
-  # that a page holds "the current state of this subject", the agent read it in 1 of 4 runs and
-  # went back to refusing; told what the page covers, in its own words, 4 of 4 (2026-10-16).
+  # The page's own section headings, which are meant to make the pointer worth following: told
+  # only that a page holds "the current state of this subject", the agent reached it in 1 of 4
+  # runs; with the headings, 6 of 8 (2026-10-16). The gap is not shown to be the wording: the
+  # three misses without headings never opened the note at all.
   # The three housekeeping sections are left out — they name no subject.
   # A page with no sections at all is normal for a short one, and grep's exit 1 must not end
   # the run: the pointer is still worth writing without the "It covers" clause.
