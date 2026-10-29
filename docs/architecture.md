@@ -609,6 +609,17 @@ general rule: state shared between versions has to be keyed on something no vers
 reinterpret. The ingest skill also names the region as never-file, because snapshots written by
 an older session already exist and `sources/` is append-only.
 
+There is a third placement the host offers and Brain does not use. A file under `.claude/rules/`
+with a `paths:` glob in its frontmatter is loaded when the agent reads, writes or edits a
+matching file, which moves the decision to open it off the model's judgment and onto a harness
+event — the one thing a brief cannot do. It is not available on a memory note, whose frontmatter
+carries a `type` and nothing else, so taking it would mean a third write target outside the vault
+and a rule file per subject. It is also a different trigger: a rule fires on a file, and a vault
+page is about a subject, so only pages whose subject is one path — a migration, a config file, a
+generated artifact — would have a glob to hang on. Nothing has measured whether file-triggered
+delivery beats a session-start pointer for those, and the pointer is already at 50 of 50 on the
+one question either would answer, so the glob stays unused until there is a question it wins.
+
 
 ---
 
