@@ -537,8 +537,15 @@ reached the page checked that day, and the 50-run arm does not move that figure 
 page from 11 to 34, and 24 of its 29 correct answers came from an earlier record on a different
 page whose core conclusion happened to match. So the sentence buys correctness out of the vault's
 older records and buys nothing on reaching the newest one, which is a different trade from the one
-the probe was weighing — and the reason it stays unshipped is that nothing in the experiment covers
-an older record that is wrong. Four runs could not have shown either half of that.
+the probe was weighing. Four runs could not have shown either half of it.
+
+The brief carries the sentence for two reasons. What it replaces is not a wrong answer but no
+answer: of the 192 runs across the experiment that read no vault page, 125 declined, 66 hedged and
+1 was correct, and none of the 350 was ever wrong. And its own weakness — that it answers from an
+older record instead of the page checked that day — is the half the memory pointer covers, at 50
+runs of 50, so the two clauses address the two halves rather than the same one twice. What stays
+unmeasured is the case where the older record is wrong; the brief's requirement to give the claim's
+date is what makes that visible to the reader, not what prevents it.
 
 What every transcript shows instead is a nearer store: the agent reads
 `<transcript root>/<project>/memory/` first and stops, in all five arms and every run of that
