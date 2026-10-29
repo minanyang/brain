@@ -9,7 +9,7 @@ Claude Code and Codex transcripts contain everything: pasted internal documents,
 3. **The distiller is told what not to carry.** No tool output, no code blocks over 5 lines, no credentials, no verbatim pasted documents — summarize the fact, not the artifact.
 4. **The vault is private or local-only.** A private remote is acceptable for multi-device sync; a public one is not, ever.
 5. **The pattern repository knows nothing.** Examples, templates, and tests in `brain` use fabricated data. Nothing in it is derived from a real vault.
-6. **The one write outside a vault carries no claim.** `memory-pointer.sh` appends a marked region to a memory note of the agent's own, naming the vault page that now holds the note's subject, its date and its section headings. Nothing else is written there, so no fact leaves the vault by that path and anything a reader would act on stays where it is dated and checkable.
+6. **The one write outside a vault carries no claim.** `memory-pointer.sh` appends a marked region to a memory note of the agent's own, and the same sentence under that note's entry in the `MEMORY.md` beside it, naming the vault page that now holds the note's subject, its date and its section headings. Nothing else is written there, so no fact leaves the vault by that path and anything a reader would act on stays where it is dated and checkable.
 7. **The brief is in scope.** If `brief.md` is injected at session start, it must pass the same gate as everything else because it is read on every session, in every repository — including public ones you may be asked to commit to.
 
 ## What the human still has to do

@@ -5,6 +5,12 @@
 # duplicates the line instead of replacing it, a path that is not a memory note at all, and
 # the region not being strippable — which is what keeps a pointer from coming back into the
 # vault as a source and from making an unchanged note look changed to the next sync.
+#
+# The same sentence goes into `MEMORY.md` under the note's own entry, which is the placement that
+# was measured at 50 runs of 50 against the note's own 32. Its cases are the ways that write
+# could damage a file Brain does not own: replacing another note's pointer, inventing an entry
+# for a note the owner never listed, forking the measured sentence into a shorter one, and
+# spending bytes below the prefix that is actually loaded.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 t="$(mktemp -d)"
@@ -85,6 +91,68 @@ if "$here/memory-pointer.sh" --vault acme --note "$t/projects/acme/memory/gone.m
 else
   bad "a note that no longer exists is a no-op, not an error" "non-zero exit"
 fi
+
+# --- the MEMORY.md entry (the measured placement) ---------------------------
+idx="$t/projects/acme/memory/MEMORY.md"
+other="$t/projects/acme/memory/other-note.md"
+printf -- '---\nname: other-note\n---\n\nSomething else.\n' > "$other"
+fresh_index() {
+  { printf -- '- [other-note](other-note.md) — a hook\n'
+    printf -- '- [db-allow](db-allow.md) — another hook\n'
+  } > "$idx"
+}
+
+printf -- '---\nname: db-allow\n---\n\nRun the script.\n' > "$note"
+fresh_index
+run --page topics/db-safety
+is "the index gets one pointer under the note's own entry" \
+  "$(grep -c '^  - \*\*Vault:.*<!-- brain:vault db-allow.md -->$' "$idx")" "1"
+is "it sits directly below that entry, not elsewhere" \
+  "$(awk '/^- \[db-allow\]/ { getline; print ($0 ~ /brain:vault db-allow.md/) ? "below" : "elsewhere" }' "$idx")" "below"
+is "the entry's own line is untouched" \
+  "$(grep -c '^- \[db-allow\](db-allow.md) — another hook$' "$idx")" "1"
+
+# A shorter variant in the index would save room in a budgeted file and would not be the sentence
+# the 50-of-50 was measured on, so the two placements must carry the same text.
+is "the index carries the note's sentence unchanged" \
+  "$(sed -n 's/^  - \(\*\*Vault:.*\) <!-- brain:vault db-allow.md -->$/\1/p' "$idx")" \
+  "$(grep -m1 '^\*\*Vault:' "$note")"
+
+run --page topics/db-safety
+is "a second run replaces the index line rather than appending" "$(grep -c 'brain:vault db-allow.md' "$idx")" "1"
+is "the index keeps its other entry" "$(grep -c '^- \[other-note\]' "$idx")" "1"
+
+# Every note's pointer lives in this one file, so a run must replace only its own.
+"$here/memory-pointer.sh" --vault acme --note "$other" --page topics/db-safety >/dev/null 2>&1
+is "pointing another note leaves the first note's line alone" "$(grep -c 'brain:vault db-allow.md' "$idx")" "1"
+is "and writes its own" "$(grep -c 'brain:vault other-note.md' "$idx")" "1"
+
+# An entry this script cannot find is one it would have to invent, in a file the owner maintains.
+printf -- '- [other-note](other-note.md) — a hook\n' > "$idx"
+run --page topics/db-safety
+is "a note with no entry gets no invented one" "$(grep -c 'brain:vault db-allow.md' "$idx")" "0"
+is "the note itself is still pointed" "$(grep -c '^<!-- brain:vault -->$' "$note")" "1"
+
+rm -f "$idx"
+run --page topics/db-safety
+is "no index at all is a no-op, not an error" "$(grep -c '^<!-- brain:vault -->$' "$note")" "1"
+
+# Only the first 200 lines or 25 KB of the index are loaded, so a pointer below that cut is bytes
+# spent on a line nothing reads. The guard is on the pointer's own position, so an entry near the
+# top of an over-long index still gets one.
+{ printf -- '- [db-allow](db-allow.md) — another hook\n'
+  i=0; while [ $i -lt 400 ]; do printf -- '- [filler-%d](filler-%d.md) — padding\n' "$i" "$i"; i=$((i+1)); done
+} > "$idx"
+run --page topics/db-safety
+is "a pointer that lands inside the loaded prefix is written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "1"
+
+{ i=0; while [ $i -lt 400 ]; do printf -- '- [filler-%d](filler-%d.md) — padding\n' "$i" "$i"; i=$((i+1)); done
+  printf -- '- [db-allow](db-allow.md) — another hook\n'
+} > "$idx"
+before=$(git hash-object "$idx")
+run --page topics/db-safety
+is "a pointer that would land past the loaded prefix is not written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "0"
+is "and the index is left byte-for-byte as it was" "$(git hash-object "$idx")" "$before"
 
 printf 'test-memory-pointer: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

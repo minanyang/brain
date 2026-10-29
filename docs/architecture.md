@@ -524,6 +524,22 @@ that day. Naming the answering page in the injected list, which cannot ship beca
 built before the question exists, is the only arm that moved either question — and it moved the
 hard one in one run of four.
 
+Three of those sentences were measured again on 2026-10-28, 50 runs each instead of four, and
+one of them inverts. Telling the agent that its own notes are nearer but not better made things
+worse than saying nothing: 2 correct answers against the plain brief's 6, and 4 runs that read any
+vault page against 11. Naming `index.md` did nothing, as before. But the sentence about answering
+from the vault's dated record when a check is unavailable raised correct answers from 6 to 29 of
+50 — the arm the four-run probe had recorded as a failure.
+
+Both measurements stand, because they grade different things. The probe asked whether the run
+reached the page checked that day, and the 50-run arm does not move that figure either: 5 against
+6. What it moves is whether the answer is right at all. It raised the runs that read any vault
+page from 11 to 34, and 24 of its 29 correct answers came from an earlier record on a different
+page whose core conclusion happened to match. So the sentence buys correctness out of the vault's
+older records and buys nothing on reaching the newest one, which is a different trade from the one
+the probe was weighing — and the reason it stays unshipped is that nothing in the experiment covers
+an older record that is wrong. Four runs could not have shown either half of that.
+
 What every transcript shows instead is a nearer store: the agent reads
 `<transcript root>/<project>/memory/` first and stops, in all five arms and every run of that
 question. So the open half is not a retrieval failure the brief can word its way out of, and
@@ -544,6 +560,29 @@ difference between the last two is the whole mechanism — the note is read firs
 what decides is whether the agent can tell from the pointer that this question is that page's
 subject, and section headings say that deterministically where a summary does not.
 
+Those were four and eight runs. A larger one on 2026-10-28 — the same question, seven arms, 50
+runs each, every hook off and the brief, model and flags fixed — moved the result from the
+pointer's wording to its placement. The pointer in the note reached the page in 32 runs of 50 and
+produced 26 correct answers. The same sentence under that note's own entry in `MEMORY.md` reached
+it in 50 of 50, every answer correct, in a mean of 1.2 tool calls against 5.3 for the brief alone.
+The note's line works only when the note is opened: of the 17 runs that never opened it, none
+reached the page, while `MEMORY.md` is loaded at session start and is in context whether the agent
+goes looking or not. Both placements are written, because they fail in different runs and the
+note's line costs nothing in the index's budget. The index line is the note's sentence unchanged,
+for the same reason: a shorter variant would buy room in a budgeted file and would not be the
+thing that was measured.
+
+The index's budget does bind. Only its first 200 lines or 25 KB are loaded, so the guard is on
+where the pointer itself would land in the file the write would produce, not on that file's total
+size — in an index already past the cut a pointer near the top is still read, and one below it is
+bytes spent on a line nothing loads. When it does not fit, nothing is written and the run says so,
+because which note to drop from a full index is the owner's to decide and not a ranking this
+script should invent. What the guard does not protect is the entries the pointer displaces: it
+spends its bytes inside the loaded prefix, so each one pushes about two and a half index rows
+below the cut. Run against the largest index here — 79 entries over 13 KB — 40 notes got a
+pointer and the remaining 39 were refused, the last one written ending at byte 25,145. An entry the script cannot find is left alone for the same reason: pointing
+a note the owner never listed would mean writing them an index row rather than a pointer.
+
 Writing into the agent's own memory directory is a deliberate reversal: `memory-sync.sh` used
 to say that nothing is ever written back there. The cost is that a note is no longer purely the
 agent's own, so three things are kept true. `memory-sync.sh` strips the marked region out of
@@ -551,7 +590,9 @@ the copy it writes, because a pointer that reached the vault would be a source s
 says something — Brain quoting itself as evidence. The pointer carries no claim of its own
 beyond a path, a date and headings, so everything a reader might act on stays on the page where
 it is dated and checkable. And the change-detection hash is of the note as it sits on disk,
-pointer included, which `memory-pointer.sh` re-stamps when it writes.
+pointer included, which `memory-pointer.sh` re-stamps when it writes. The index needs none of
+that third part: `memory-sync.sh` skips `MEMORY.md` as the index rather than a memory, so its
+line is never snapshotted and there is no hash to keep honest.
 
 That last one cost a day to learn. Hashing the stripped text is the tidier-looking choice and it
 is wrong, because a session pins its plugin version for its whole life: a session on the version

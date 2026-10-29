@@ -16,6 +16,18 @@
 # the end of the file belongs to this script, and `memory-sync.sh` strips that region before
 # hashing or snapshotting a note, so a pointer never comes back into the vault as a fact and
 # never makes an unchanged note look changed.
+#
+# The same sentence also goes into `MEMORY.md`, the index Claude Code loads at session start,
+# under that note's own entry. Where the line sits is what decides whether it is read, and the
+# two placements fail in different runs: measured on 2026-10-28 over one question, seven arms and
+# 50 runs each, the pointer in the note reached the page in 32 runs of 50 — and in none of the 17
+# that never opened the note — while the same sentence under the note's entry in `MEMORY.md`
+# reached it in 50 of 50, every answer correct, in a mean of 1.2 tool calls against 5.3 without
+# it. The index is in context whether the agent goes looking or not; the note has to be opened
+# first. Both are written, since the note's line costs nothing in the index's budget.
+#
+# The sentence written into the index is the one written into the note, unchanged. A shorter
+# variant would buy room in a budgeted file and would not be the thing that was measured.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -78,4 +90,52 @@ if [ -f "$state" ] && [ "$(jq -r --arg f "$note" 'has($f)' "$state")" = true ]; 
   h=$(git hash-object "$note")
   jq --arg f "$note" --arg h "$h" '.[$f] = $h' "$state" > "$state.tmp" && mv "$state.tmp" "$state"
 fi
+base=$(basename "$note")
+idx="$(dirname "$note")/MEMORY.md"
+imk="<!-- brain:vault $base -->"
+# The index is a list of one line per note; the pointer goes under its note's own line as a
+# sub-bullet, so the list it belongs to survives. The marker carries the note's file name
+# because every note's pointer lives in this one file and a run must replace only its own.
+# `memory-sync.sh` skips `MEMORY.md` as the index rather than a memory, so nothing here can come
+# back into the vault as a fact and there is no hash to re-stamp.
+if [ ! -f "$idx" ]; then
+  log "no MEMORY.md beside $base, so there is no entry to point: the note's own line is written"
+elif ! grep -qF "]($base)" "$idx"; then
+  # An entry this script did not find is an entry it would have to invent, which means writing a
+  # row into the owner's index for a note they have not listed there.
+  log "$base has no entry in MEMORY.md, and inventing one is not this script's to do"
+else
+  ind=""
+  while IFS= read -r l; do
+    [ -n "$l" ] || continue
+    ind="$ind  - $l $imk"$'\n'
+  done <<EOF
+${lines#$'\n'}
+EOF
+  itmp=$(mktemp)
+  # ENVIRON, not -v: awk expands backslash escapes in a -v assignment, and the sentence carries
+  # a page's own section headings.
+  BRAIN_MK="$imk" BRAIN_KEY="]($base)" BRAIN_PTR="$ind" awk '
+    index($0, ENVIRON["BRAIN_MK"]) { next }
+    { print }
+    index($0, ENVIRON["BRAIN_KEY"]) && !done { printf "%s", ENVIRON["BRAIN_PTR"]; done = 1 }
+  ' "$idx" > "$itmp"
+  # `MEMORY.md` is loaded only as far as its first 200 lines or 25 KB, so a pointer below that
+  # cut is bytes spent on a line nothing loads. The guard is on where the pointer itself lands in
+  # the file this would produce, not on the file's total size: in an index already past the cut, a
+  # pointer near the top is still read. When it does not fit, nothing is written and the run says
+  # so — which note to drop from a full index is the owner's call, not this script's.
+  # LC_ALL=C so `length` is bytes: gawk in a UTF-8 locale counts characters, and an index whose
+  # summaries are not ASCII would then be measured at a third of its real size against a byte cap.
+  pos=$(BRAIN_MK="$imk" LC_ALL=C awk '{ b += length($0) + 1; if (index($0, ENVIRON["BRAIN_MK"])) { n = NR; bb = b } } END { if (n) print n "\t" bb }' "$itmp")
+  iln=$(printf '%s' "$pos" | cut -f1); iby=$(printf '%s' "$pos" | cut -f2)
+  if [ "${iln:-0}" -gt 200 ] || [ "${iby:-0}" -gt 25600 ]; then
+    rm -f "$itmp"
+    log "MEMORY.md has no room: the pointer would land at line ${iln:-?}, byte ${iby:-?}, past the 200-line and 25 KB prefix that is loaded — not written"
+  else
+    cat "$itmp" > "$idx"; rm -f "$itmp"
+    log "pointed the MEMORY.md entry for $base"
+  fi
+fi
+
 log "pointed $(basename "$note") at ${#pages[@]} page(s)"
