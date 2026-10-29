@@ -50,9 +50,17 @@ while IFS= read -r f; do
   blob=$(git show ":$f" 2>/dev/null) || continue
   marks=$(printf '%s' "$blob" | grep -c '^- \[\(resolved\|unresolvable\)' 2>/dev/null || true)
   [ "${marks:-0}" -gt 0 ] || continue
-  if ! printf '%s' "$blob" | grep -q '(→ human,'; then
-    say "$f carries a [resolved] or [unresolvable] conflict but the page cites no human decision. Only a human may settle one: put the winning claim in the body cited (→ human, <date>), or leave the entry [open]."
-  fi
+  # A `case` glob and not `printf | grep -q`: `grep -q` exits at its first match, `printf` then
+  # takes SIGPIPE on the rest, and under the `pipefail` above the pipeline's status becomes 141 —
+  # which refused a page over the 64 KB pipe buffer for citing no human however many citations it
+  # carried. The real vault tripped it at 79 KB on 2026-10-29; whether it tripped was a race, so
+  # the guard was not wrong but flaky, which is worse. The glob reads the whole value and forks
+  # nothing.
+  case "$blob" in
+    *'(→ human,'*) ;;
+    *)
+    say "$f carries a [resolved] or [unresolvable] conflict but the page cites no human decision. Only a human may settle one: put the winning claim in the body cited (→ human, <date>), or leave the entry [open]." ;;
+  esac
 done < <(staged '*.md')
 
 # 3. Provenance is append-only. A digest or a ref is the record of what a session actually said;

@@ -88,6 +88,20 @@ git add topics/b.md
 blocked 'mark it unresolvable' "an [unresolvable] conflict with no human citation is refused"
 undo
 
+# A page larger than the pipe buffer must still be read whole. This check was a
+# `printf | grep -q` pipeline under `set -o pipefail`: `grep -q` exits at its first match,
+# `printf` then takes SIGPIPE on whatever is left, and the pipeline's status became 141 — so a
+# page over the 64 KB pipe buffer was refused for citing no human however many citations it
+# carried, and whether it was refused at all was a race. Every other page in this fixture is a
+# few hundred bytes, which is why the bug shipped. The citation sits near the top so that
+# `grep` matches early and the most is left unwritten, which is the worst case.
+{ printf -- '---\ntitle: Big\ntype: topic\nupdated: 2026-03-07\n---\n\nIt is one (→ human, 2026-03-05).\n\n'
+  i=0; while [ $i -lt 1000 ]; do printf 'filler line %d, long enough that a thousand of them pass the pipe buffer.\n' "$i"; i=$((i+1)); done
+  printf -- '\n## Conflicts\n- [resolved 2026-03-05] "one" — decided: one\n'
+} > topics/big.md
+git add topics/big.md
+allowed 'a page past the pipe buffer' "a page larger than the pipe buffer is read whole"
+
 # 3. Provenance is append-only.
 printf 'line one\nline three\n' > sources/sessions/a.md; git add sources/sessions/a.md
 blocked 'drop a line from a digest' "a digest that loses a line is refused"
