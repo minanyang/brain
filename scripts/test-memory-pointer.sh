@@ -137,22 +137,36 @@ rm -f "$idx"
 run --page topics/db-safety
 is "no index at all is a no-op, not an error" "$(grep -c '^<!-- brain:vault -->$' "$note")" "1"
 
-# Only the first 200 lines or 25 KB of the index are loaded, so a pointer below that cut is bytes
-# spent on a line nothing reads. The guard is on the pointer's own position, so an entry near the
-# top of an over-long index still gets one.
-{ printf -- '- [db-allow](db-allow.md) — another hook\n'
-  i=0; while [ $i -lt 400 ]; do printf -- '- [filler-%d](filler-%d.md) — padding\n' "$i" "$i"; i=$((i+1)); done
-} > "$idx"
-run --page topics/db-safety
-is "a pointer that lands inside the loaded prefix is written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "1"
+# A write that takes the index past either of its read limits — 200 lines or 25 KB, whichever
+# comes first — is answered by the harness with an error telling the agent to rewrite it, so the
+# guard is on the whole file after the write. The byte case is the one that matters in practice:
+# an index of non-ASCII summaries is well under 200 lines long before it is anywhere near 25 KB.
+pad_index() {  # pad_index <bytes> — an index holding db-allow's entry, grown past <bytes>
+  printf -- '- [db-allow](db-allow.md) — another hook\n' > "$idx"
+  n=0
+  while [ "$(wc -c < "$idx" | tr -d ' ')" -lt "$1" ]; do
+    printf -- '- [f%d](f%d.md) — %s\n' "$n" "$n" "$(printf 'x%.0s' $(seq 1 180))" >> "$idx"
+    n=$((n+1))
+  done
+}
 
-{ i=0; while [ $i -lt 400 ]; do printf -- '- [filler-%d](filler-%d.md) — padding\n' "$i" "$i"; i=$((i+1)); done
-  printf -- '- [db-allow](db-allow.md) — another hook\n'
+pad_index 18000
+run --page topics/db-safety
+is "a pointer that leaves the index inside both limits is written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "1"
+
+pad_index 24900
+before=$(git hash-object "$idx")
+run --page topics/db-safety
+is "a pointer that would push the index past 25 KB is not written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "0"
+is "and the index is left byte-for-byte as it was" "$(git hash-object "$idx")" "$before"
+
+{ printf -- '- [db-allow](db-allow.md) — another hook\n'
+  i=0; while [ $i -lt 205 ]; do printf -- '- [f%d](f%d.md) — s\n' "$i" "$i"; i=$((i+1)); done
 } > "$idx"
 before=$(git hash-object "$idx")
 run --page topics/db-safety
-is "a pointer that would land past the loaded prefix is not written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "0"
-is "and the index is left byte-for-byte as it was" "$(git hash-object "$idx")" "$before"
+is "a pointer that would push the index past 200 lines is not written" "$(grep -c 'brain:vault db-allow.md' "$idx")" "0"
+is "and that index is untouched too" "$(git hash-object "$idx")" "$before"
 
 printf 'test-memory-pointer: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

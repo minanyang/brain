@@ -572,16 +572,20 @@ note's line costs nothing in the index's budget. The index line is the note's se
 for the same reason: a shorter variant would buy room in a budgeted file and would not be the
 thing that was measured.
 
-The index's budget does bind. Only its first 200 lines or 25 KB are loaded, so the guard is on
-where the pointer itself would land in the file the write would produce, not on that file's total
-size — in an index already past the cut a pointer near the top is still read, and one below it is
-bytes spent on a line nothing loads. When it does not fit, nothing is written and the run says so,
-because which note to drop from a full index is the owner's to decide and not a ranking this
-script should invent. What the guard does not protect is the entries the pointer displaces: it
-spends its bytes inside the loaded prefix, so each one pushes about two and a half index rows
-below the cut. Run against the largest index here — 79 entries over 13 KB — 40 notes got a
-pointer and the remaining 39 were refused, the last one written ending at byte 25,145. An entry the script cannot find is left alone for the same reason: pointing
-a note the owner never listed would mean writing them an index row rather than a pointer.
+The index's budget does bind. Only its first 200 lines, or its first 25 KB, whichever comes
+first, are loaded at session start, and a write that takes the file past either limit is answered
+by the harness with an error telling the agent to rewrite the index. So the guard is on the whole
+file after the write and not on where the pointer lands in it. The position rule is the tempting
+one — it writes more pointers, and in an index already over the cut a pointer near the top is
+still read — but it buys its 50-of-50 by spending bytes inside the loaded prefix, which pushes
+the owner's own entries below it and leaves their index over its read limit. Brain does not get
+to degrade the index in order to be read from it. Run against the largest index here, 79 entries
+over 13 KB, 24 notes got a pointer and the remaining 55 were refused, leaving the file at 103
+lines and 24,612 bytes: inside both limits, where the position rule had taken it to 31,983 bytes.
+When a pointer does not fit, nothing is written and the run says so, because which note to drop
+from a full index is the owner's to decide and not a ranking this script should invent. An entry
+the script cannot find is left alone for the same reason: pointing a note the owner never listed
+would mean writing them an index row rather than a pointer.
 
 Writing into the agent's own memory directory is a deliberate reversal: `memory-sync.sh` used
 to say that nothing is ever written back there. The cost is that a note is no longer purely the

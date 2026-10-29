@@ -120,18 +120,20 @@ EOF
     { print }
     index($0, ENVIRON["BRAIN_KEY"]) && !done { printf "%s", ENVIRON["BRAIN_PTR"]; done = 1 }
   ' "$idx" > "$itmp"
-  # `MEMORY.md` is loaded only as far as its first 200 lines or 25 KB, so a pointer below that
-  # cut is bytes spent on a line nothing loads. The guard is on where the pointer itself lands in
-  # the file this would produce, not on the file's total size: in an index already past the cut, a
-  # pointer near the top is still read. When it does not fit, nothing is written and the run says
-  # so — which note to drop from a full index is the owner's call, not this script's.
-  # LC_ALL=C so `length` is bytes: gawk in a UTF-8 locale counts characters, and an index whose
-  # summaries are not ASCII would then be measured at a third of its real size against a byte cap.
-  pos=$(BRAIN_MK="$imk" LC_ALL=C awk '{ b += length($0) + 1; if (index($0, ENVIRON["BRAIN_MK"])) { n = NR; bb = b } } END { if (n) print n "\t" bb }' "$itmp")
-  iln=$(printf '%s' "$pos" | cut -f1); iby=$(printf '%s' "$pos" | cut -f2)
-  if [ "${iln:-0}" -gt 200 ] || [ "${iby:-0}" -gt 25600 ]; then
+  # Only the first 200 lines of `MEMORY.md`, or the first 25 KB, whichever comes first, are loaded
+  # at session start, and a write that takes the file past either one is answered by the harness
+  # with an error telling the agent to rewrite the index. So the guard is on the whole file after
+  # the write, not on where the pointer lands in it: a rule that kept only the pointer itself above
+  # the cut would buy its 50-of-50 by pushing the owner's own entries below it and leaving their
+  # index over its read limit, and Brain does not get to degrade the index in order to be read from
+  # it. When the pointer does not fit, nothing is written and the run says so — which note to drop
+  # from a full index is the owner's call, not a ranking this script should invent.
+  # `wc -c` counts bytes, which is what the limit is in. `KB` is taken as 1000, the smaller of its
+  # two readings, so the guard is not the thing that has to discover it meant 1024.
+  iln=$(grep -c "" "$itmp"); iby=$(wc -c < "$itmp" | tr -d ' ')
+  if [ "$iln" -gt 200 ] || [ "$iby" -gt 25000 ]; then
     rm -f "$itmp"
-    log "MEMORY.md has no room: the pointer would land at line ${iln:-?}, byte ${iby:-?}, past the 200-line and 25 KB prefix that is loaded — not written"
+    log "MEMORY.md has no room for the pointer: it would leave the index at $iln lines and $iby bytes, past the 200-line, 25 KB prefix that is loaded — not written"
   else
     cat "$itmp" > "$idx"; rm -f "$itmp"
     log "pointed the MEMORY.md entry for $base"
